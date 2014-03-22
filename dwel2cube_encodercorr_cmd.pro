@@ -1,5 +1,17 @@
-; Convert DWEL HDF5 data format to ENVI data cube (.img files)
-; Running in commandline mode
+;; dwel2cube_encodercorr_cmd.pro
+;; Convert DWEL HDF5 data format to ENVI data cube (.img files)
+;; Running in command-line mode
+;;
+;; Zhan Li, zhanli86@bu.edu
+;; 
+;; Introduced in 2013
+;; 
+;; Revision history:
+;; 20140322, unwarp the encoder drift and correct zenith with a casing
+;;mask file at the same time. Don't have to provide the nadir
+;;shift of elevation encoder anymore to correct the zenith. The
+;;program will find the zenith encoder correction of each scan line
+;;from the casing mask file and apply the changes. 
 
 function CheckDWEL_EncoderCorr, DWEL_H5File, Wavelength, nadirelevshift, ScanEncoderCorrection
   compile_opt idl2
