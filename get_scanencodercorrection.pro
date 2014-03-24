@@ -94,8 +94,7 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchL
     ENDIF 
     IF NadirCorrection[0] GT 524288 THEN BEGIN
        NadirCorrection[0] = NadirCorrection[0] - 524288
-    ENDIF 
-    ;; ScanEncoderCorrection[0]=BenchScanEncoder - (ScanEncoderImg[CasingInd[0], 0]+ScanEncoderImg[CasingInd[NCasingPixel-1], 0])/2.0
+    ENDIF     
   endelse
   ; correction of the remaining scan lines
   for l=1,nl_anc-1,1 do begin
@@ -111,7 +110,6 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchL
           ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], l] + 524288
       endif
    endif
-    ;; ScanEncoderCorrection[l]=BenchScanEncoder-mean(ScanEncoderImg[CasingInd, l])
     NadirCorrection[l] = (min(ScanEncoderImg[CasingInd, l])+max(ScanEncoderImg[CasingInd, l])) / 2.0
     ;; NadirCorrection[l] = mean(ScanEncoderImg[CasingInd, l])
     IF NadirCorrection[l] LT 0 THEN BEGIN
@@ -120,13 +118,12 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchL
     IF NadirCorrection[l] GT 524288 THEN BEGIN
        NadirCorrection[l] = NadirCorrection[l] - 524288
     ENDIF
-    ;;ScanEncoderCorrection[l]=BenchScanEncoder - (ScanEncoderImg[CasingInd[0], l]+ScanEncoderImg[CasingInd[NCasingPixel-1], l])/2.0
   endfor
 
-  ScanEncoderCorrection = BenchScanEncoder - NadirCorrection
+  ;;ScanEncoderCorrection = BenchScanEncoder - NadirCorrection
   NadirCorrection = 0 - NadirCorrection
 
-  return, {NadirCorrection:NadirCorrection, BenchScanEncoder:BenchScanEncoder, ScanEncoderCorrection:ScanEncoderCorrection}
+  return, {NadirCorrection:NadirCorrection} ;;, BenchScanEncoder:BenchScanEncoder, ScanEncoderCorrection:ScanEncoderCorrection}
 
 end
 
