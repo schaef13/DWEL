@@ -77,9 +77,10 @@ function CheckDWEL, DWEL_H5File, Wavelength, nadirelevshift
   h5f_close, fileid  
   H5_CLOSE  ; This is the crucial step - release all of HDF5's memory
   return, {DWELFileName:DWEL_H5File, NadirScanEncoder:nadirelevshift, $
-    TotalNoScans:TotalNoScans, NoShotsPerScan:NoShotsPerScan, NoSamplesPerShot:NoSamplesPerShot, FirstShotInd:shotstart, LastShotInd:shotend, $
-    ShotStart:ShotStartVec, ShotEnd:ShotEndVec, ShotNum:ShotNumVec, $
-    NoScanPerRotation:NoScanPerRotation}
+             TotalNoScans:TotalNoScans, NoShotsPerScan:NoShotsPerScan, NoSamplesPerShot:NoSamplesPerShot, $
+             FirstShotInd:shotstart, LastShotInd:shotend, $
+             ShotStart:ShotStartVec, ShotEnd:ShotEndVec, ShotNum:ShotNumVec, $
+             NoScanPerRotation:NoScanPerRotation}
 end
 
 function DataCube, DWEL_MetaInfo, DataCube_File, Wavelength
@@ -248,8 +249,17 @@ function DataCube, DWEL_MetaInfo, DataCube_File, Wavelength
   
 end
 
-pro DWEL2Cube_cmd, DWEL_H5File, DataCube_File, Wavelength, DWEL_Height, $
-  beam_div, srate, nadirelevshift
+pro DWEL2Cube_cmd, DWEL_H5File, DataCube_File, Wavelength, Wavelength_Label, $
+                   DWEL_Height, beam_div, srate, nadirelevshift
+;;
+;; Because the names of the waveform datasets in HDF5 files were
+;;incorrectly labeled as of March 2014, including all data from CA
+;;Sierra June 2013 and Brisbane August 2013, two numbers of wavelength
+;;are required here. 
+;; Wavelength: a number used to create a dataset name and get waveform
+;; data from HDF5 file.
+;; Wavelength_Label: a number to be put in the header file. This is
+;;the CORRECT wavelength number.
   
   compile_opt idl2
   envi, /restore_base_save_files
@@ -257,9 +267,6 @@ pro DWEL2Cube_cmd, DWEL_H5File, DataCube_File, Wavelength, DWEL_Height, $
 
   ND_Nam=['ND0','ND015','ND030','ND1','ND2','ND3','ND045','ND115','ND130','ND145','Unknown']
   DWEL_ND_Filter=0
-  
-;  beam_div = 2.5 ; mrad
-;  srate = 2.0 ; smp/ns
 
   DWEL_MetaInfo = CheckDWEL(DWEL_H5File, Wavelength, nadirelevshift)
   HeaderInfo = DataCube(DWEL_MetaInfo, DataCube_File, Wavelength)
@@ -293,10 +300,6 @@ pro DWEL2Cube_cmd, DWEL_H5File, DataCube_File, Wavelength, DWEL_Height, $
   Post_Info=[ $
   'Data Start = '+strtrim(string(0),2),$
   'Actual scans completed = '+strtrim(string(DWEL_MetaInfo.TotalNoScans),2)]
-  ;List the file details and see that all is OK
-  ;; Manual_Info=[ $
-  ;; 'ND Filter = '+strtrim('None',2),$
-  ;; 'EVI height = '+strtrim(DWEL_Height,2)]
   
   DWEL_Scan_Info=[Name_Info,Site_Info,Scan_Info,Post_Info]
   if (DWEL_ND_Filter le 10) then $
@@ -316,7 +319,7 @@ pro DWEL2Cube_cmd, DWEL_H5File, DataCube_File, Wavelength, DWEL_Height, $
   DWEL_Scan_Info=[DWEL_Scan_Info,'Output Cube File = '+out_base]
 
   DWEL_Adaptation=['Band "Waveform Mean" is actually "Waveform Max"', 'Band "Scan Encoder" is value corrected for nadir shift']
-  DWEL_Adaptation=[DWEL_Adaptation, 'Wavelength='+strtrim(Wavelength, 2)]
+  DWEL_Adaptation=[DWEL_Adaptation, 'Wavelength='+strtrim(Wavelength_Label, 2)]
   DWEL_Adaptation=[DWEL_Adaptation, 'Nadir shift of scan encoder='+strtrim(nadirelevshift, 2)]
   
   ENVI_SETUP_HEAD, fname=DataCube_File, $
