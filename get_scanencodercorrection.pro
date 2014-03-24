@@ -2,11 +2,9 @@
 ; correct scan encoder values (elevation encoder) according to the casing region.
 ; cassing region of the scan to be corrected is input from a binary image where 1 is casing region. 
 ; the binary image of casing region has the same dimensions with the scan's ancillary image which provides
-; the uncorrected  scan encoder values
+; the uncorrected scan encoder values
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; By default, the casing mask is the left edge of the casing. 
-; When the keyword parameter RightCasing is set, the casing mask is the right edge of the casing area
 function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchLineInd
 
   compile_opt idl2
@@ -56,6 +54,9 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchL
   ; the combined mask
   commask = mask*CasingMask
   
+  ;; an array to store the zenith correction of scan encoder of each
+  ;;scan line
+  NadirCorrection = fltarr(nl_anc)
   ; an array to store the correction of scan encoder of each scan line
   ScanEncoderCorrection = fltarr(nl_anc)
   ; because we've seen some unexpected pattern of encoder values in the first scan line
@@ -67,8 +68,15 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchL
     ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], BenchLineInd] = $
       ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], BenchLineInd] + 524288
   endif
-  ;BenchScanEncoder = mean(ScanEncoderImg[CasingInd, BenchLineInd])
-  BenchScanEncoder = (ScanEncoderImg[CasingInd[0], BenchLineInd]+ScanEncoderImg[CasingInd[NCasingPixel-1], BenchLineInd])/2.0
+  NadirCorrection[BenchLineInd] = (min(ScanEncoderImg[CasingInd, BenchLineInd])+max(ScanEncoderImg[CasingInd, BenchLineInd])) / 2.0
+  ;; NadirCorrection[BenchLineInd] = mean(ScanEncoderImg[CasingInd, BenchLineInd])
+  IF NadirCorrection[BenchLineInd] LT 0 THEN BEGIN
+     NadirCorrection[BenchLineInd] = NadirCorrection[BenchLineInd] + 524288
+  ENDIF 
+  IF NadirCorrection[BenchLineInd] GT 524288 THEN BEGIN
+     NadirCorrection[BenchLineInd] = NadirCorrection[BenchLineInd] - 524288
+  ENDIF 
+  BenchScanEncoder = (min(ScanEncoderImg[CasingInd, BenchLineInd])+max(ScanEncoderImg[CasingInd, BenchLineInd])) / 2.0
   ; correction of the first scan line
   CasingInd = where(commask[*,0], NCasingPixel)
   if (NCasingPixel eq 0) then begin
@@ -79,8 +87,15 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchL
       ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], 0] = $
         ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], 0] + 524288
     endif
-    ;ScanEncoderCorrection[0]=BenchScanEncoder-mean(ScanEncoderImg[CasingInd, 0])
-    ScanEncoderCorrection[0]=BenchScanEncoder - (ScanEncoderImg[CasingInd[0], 0]+ScanEncoderImg[CasingInd[NCasingPixel-1], 0])/2.0
+    NadirCorrection[0] = (min(ScanEncoderImg[CasingInd,0])+max(ScanEncoderImg[CasingInd, 0])) / 2.0
+    ;; NadirCorrection[0] = mean(ScanEncoderImg[CasingInd, 0])
+    IF NadirCorrection[0] LT 0 THEN BEGIN
+       NadirCorrection[0] = NadirCorrection[0] + 524288
+    ENDIF 
+    IF NadirCorrection[0] GT 524288 THEN BEGIN
+       NadirCorrection[0] = NadirCorrection[0] - 524288
+    ENDIF 
+    ;; ScanEncoderCorrection[0]=BenchScanEncoder - (ScanEncoderImg[CasingInd[0], 0]+ScanEncoderImg[CasingInd[NCasingPixel-1], 0])/2.0
   endelse
   ; correction of the remaining scan lines
   for l=1,nl_anc-1,1 do begin
@@ -95,29 +110,23 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchL
         ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], l] = $
           ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], l] + 524288
       endif
-    endif
-    ScanEncoderCorrection[l]=BenchScanEncoder-mean(ScanEncoderImg[CasingInd, l])
-    ;ScanEncoderCorrection[l]=BenchScanEncoder - (ScanEncoderImg[CasingInd[0], l]+ScanEncoderImg[CasingInd[NCasingPixel-1], l])/2.0
+   endif
+    ;; ScanEncoderCorrection[l]=BenchScanEncoder-mean(ScanEncoderImg[CasingInd, l])
+    NadirCorrection[l] = (min(ScanEncoderImg[CasingInd, l])+max(ScanEncoderImg[CasingInd, l])) / 2.0
+    ;; NadirCorrection[l] = mean(ScanEncoderImg[CasingInd, l])
+    IF NadirCorrection[l] LT 0 THEN BEGIN
+       NadirCorrection[l] = NadirCorrection[l] + 524288
+    ENDIF 
+    IF NadirCorrection[l] GT 524288 THEN BEGIN
+       NadirCorrection[l] = NadirCorrection[l] - 524288
+    ENDIF
+    ;;ScanEncoderCorrection[l]=BenchScanEncoder - (ScanEncoderImg[CasingInd[0], l]+ScanEncoderImg[CasingInd[NCasingPixel-1], l])/2.0
   endfor
-  
-;  ; using benchmark scan encoder from the casing region to calculate the nadir shift
-;  CasingExtScanEncoder = 0.0
-;  CasingExtScanEncoder = double(CasingExtZenith / 360.0 * 524288)
-;  if keyword_set(right) then begin ; the casing mask is the right edge of the casing region
-;    CasingScanEncoder = BenchScanEncoder + CasingExtScanEncoder
-;  endif else begin ; the casing mask is the left edge of the casing region
-;    CasingScanEncoder = BenchScanEncoder - CasingExtScanEncoder
-;  endelse
-;  NadirScanEncoder = (BenchScanEncoder + CasingScanEncoder)/2.0
-  
-  ;NadirScanEncoder = BenchScanEncoder
-  ;NadirScanEncoder = 0
-  
-;  ; debug, output the correction of the scan encoders
-;  openw, CorrFid, '', /get_lun
-;  printf, CorrFid, ScanEncoderCorrection
-;  close, CorrFid
-  
-  return, {ScanEncoderCorrection:ScanEncoderCorrection}
+
+  ScanEncoderCorrection = BenchScanEncoder - NadirCorrection
+  NadirCorrection = 0 - NadirCorrection
+
+  return, {NadirCorrection:NadirCorrection, BenchScanEncoder:BenchScanEncoder, ScanEncoderCorrection:ScanEncoderCorrection}
+
 end
 

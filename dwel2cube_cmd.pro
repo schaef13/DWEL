@@ -24,7 +24,7 @@ function CheckDWEL, DWEL_H5File, Wavelength, nadirelevshift
   interval_diff = encoders[0, 0:dim_encoders[1]-2] - encoders[0, 1:dim_encoders[1]-1] ; the difference between two consecutive shots, the early one - the later one
   tmpind = where(interval_diff ne 0, tmpcount, ncomplement=count, complement=dummyind)
   if (tmpcount gt 0) then begin
-    shotstart = tmpind[0]+1
+    shotstart = tmpind[0]
     shotend = tmpind[size(tmpind, /n_elements)-1]
   endif else begin
     print, 'No valid scan encoder value! Processing is terminated!'
