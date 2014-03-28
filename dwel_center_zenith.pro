@@ -13,7 +13,7 @@ pro dwel_center_zenith, DWEL_AncFile, Casing_MaskFile
   envi_file_query, maskfile_fid, ns=mask_ns, nl=mask_nl, nb=mask_nb, $
     xstart=xstart, ystart=ystart, data_type=mask_type, $
     interleave=mask_ftype, fname=mask_fname, dims=mask_dims
-    
+
   envi_open_file, DWEL_AncFile, r_fid=anc_fid, /no_realize
   if (anc_fid eq -1) then begin
       print,strtrim('Error opening input ancillary file',2)
@@ -23,6 +23,15 @@ pro dwel_center_zenith, DWEL_AncFile, Casing_MaskFile
   envi_file_query, anc_fid, ns=anc_ns, nl=anc_nl, nb=anc_nb, $
     xstart=xstart, ystart=ystart, data_type=anc_type, $
     interleave=anc_ftype, fname=anc_fname, dims=anc_dims
+
+  f_base = file_basename(DWEL_AncFile)
+  ;now get the EVI headers that are present
+  ;set up a base structure for the EVI headers
+  evi_headers={ $
+       f_base:f_base $
+       }  
+  ;find all of the EVI headers in the hdr file as defined by FID
+  status=get_headers(anc_fid,evi_headers)
     
   mask = envi_get_data(dims=anc_dims, fid=maskfile_fid, pos=0)
   
@@ -46,7 +55,7 @@ pro dwel_center_zenith, DWEL_AncFile, Casing_MaskFile
     endelse
     
   endfor
-  ; synthesize the scan encoder according to the edges of the case, the edge
+  ; synthesize the scan encoder according to the edges of the case
   Syn_ScanEncoder = make_array(anc_ns, anc_nl, type=anc_type)
   for il=1, anc_nl-1 do begin
     if CaseEdgePos[0, il] eq -1 or CaseEdgePos[1, il] eq -1 then begin
@@ -114,22 +123,15 @@ pro dwel_center_zenith, DWEL_AncFile, Casing_MaskFile
     writeu, ofid, anc_data[*,*,j]
   endfor
   
-;  ENVI_SETUP_HEAD, fname=DWEL_AncFile, $
-;    ns=anc_ns, nl=anc_nl, nb=9, $
-;    interleave=0, data_type=size(anc_data, /type), $
-;    /write, /open, r_fid=ofid, $
-;    bnames=['Non Triggers','Sun Sensor','Scan Encoder','Rotary Encoder', $
-;    'Laser Power','Waveform Mean','Mask','Zenith','Azimuth']
+ ENVI_SETUP_HEAD, fname=DWEL_AncFile, $
+   ns=anc_ns, nl=anc_nl, nb=9, $
+   interleave=0, data_type=size(anc_data, /type), $
+   /write, /open, r_fid=ofid, $
+   bnames=['Non Triggers','Sun Sensor','Scan Encoder','Rotary Encoder', $
+   'Laser Power','Waveform Mean','Mask','Zenith','Azimuth']
   
-;  ;write out the previous header records
-;  status=put_headers(ofid,evi_headers)
-;  ;
-;  ;write the new header(s) into the HDR file
-;  DWEL_Adaptation=[DWEL_Adaptation, 'Band "Waveform Mean" is actually "Waveform Max"', 'Band "Scan Encoder" is value corrected for nadir shift in HDF raw data']
-;  envi_assign_header_value, fid=ofid, $
-;    keyword='DWEL_Adaptation', $
-;    value=DWEL_Adaptation
-;  envi_write_file_header, ofid
+ ;write out the previous header records
+ status=put_headers(ofid,evi_headers)
 
-  close, ofid
+ close, ofid
 end

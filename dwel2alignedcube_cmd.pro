@@ -1,20 +1,14 @@
 ; Convert DWEL HDF5 data format to ENVI data cube (.img files)
 ; Running in commandline mode
 
-function AlignedCheckDWEL, DWEL_H5File, Wavelength, nadirelevshift
+function AlignedCheckDWEL, DWEL_H5File, Wavelength
   compile_opt idl2
-  
-  ; test
-  ;shotend = 1000000
   
   fileid=h5f_open(DWEL_H5File)
   encoderset = h5d_open(fileid,'Interpolated angles (Alt, Azm)')
   encoders = h5d_read(encoderset)
   dim_encoders = size(encoders, /dimensions)
-  
-  ; correct the shift of nadir
-  encoders[0, *] = ((encoders[0, *] - nadirelevshift) + 524288) mod 524288
-  
+    
   interval_diff = encoders[0, 0:dim_encoders[1]-2] - encoders[0, 1:dim_encoders[1]-1] ; the difference between two consecutive shots, the early one - the later one
   tmpind = where(interval_diff ne 0, tmpcount, ncomplement=count, complement=dummyind)
   if (tmpcount gt 0) then begin
@@ -49,7 +43,6 @@ function AlignedCheckDWEL, DWEL_H5File, Wavelength, nadirelevshift
   wave_type = h5d_get_type(waveset)
   wave_class = h5t_get_class(wave_type)
   if strcmp(wave_class, 'H5T_INTEGER', /fold_case) then begin
-    ;NoSamplesPerShot = h5t_get_array_dims(wave_type)
     wavespace = h5d_get_space(waveset)
     tmpdims = H5S_GET_SIMPLE_EXTENT_DIMS(wavespace)
     NoSamplesPerShot = tmpdims[0]
@@ -72,11 +65,10 @@ function AlignedCheckDWEL, DWEL_H5File, Wavelength, nadirelevshift
   return, {DWELFileName:DWEL_H5File, $
     TotalNoScans:TotalNoScans, NoShotsPerScan:NoShotsPerScan, NoSamplesPerShot:NoSamplesPerShot, $
     FirstShotInd:shotstart, LastShotInd:shotend, $
-    ShotStart:ShotStartVec, ShotEnd:ShotEndVec, ShotNum:ShotNumVec, $
     NoScanPerRotation:NoScanPerRotation}
 end
 
-function AlignedDataCube, DWEL_MetaInfo, DataCube_File, AlignedMaskFile, Wavelength, nadirelevshift
+function AlignedDataCube, DWEL_MetaInfo, DataCube_File, AlignedMaskFile, Wavelength
   compile_opt idl2
   
   ; read the mask of aligned scanning image
@@ -93,11 +85,11 @@ function AlignedDataCube, DWEL_MetaInfo, DataCube_File, AlignedMaskFile, Wavelen
   
   fileid=h5f_open(DWEL_MetaInfo.DWELFileName)
   encoderset = h5d_open(fileid,'Interpolated angles (Alt, Azm)')
+  ;; NOTE HERE: SCAN ENCODERS ARE NOT USED IN THIS ROUTINE. INSTEAD WE
+  ;;FAKE SCAN ENCODERS HERE FOR ALIGNED SCANNING IMAGE!!!
   encoders = h5d_read(encoderset)
   ;; virtually reverse the rotation direction of DWEL by changing the rotatary encoder values
   ;encoders[1, *] =  524288 - encoders[1, *]
-  ; correct the shift of nadir
-  encoders[0, *] = ((encoders[0, *] - nadirelevshift) + 524288) mod 524288
   
   Waveset_Name = '/'+strtrim(string(Wavelength), 2)+' Waveform Data'
   waveset = h5d_open(fileid,Waveset_Name)
@@ -120,20 +112,16 @@ function AlignedDataCube, DWEL_MetaInfo, DataCube_File, AlignedMaskFile, Wavelen
   ShotAzim=0.0
   
   shotind = DWEL_MetaInfo.FirstShotInd
-;  PixelLoc = indgen(DWEL_MetaInfo.NoShotsPerScan)
-;  PixelScanEncoder = LBScanEncoder + PixelLoc*(UBScanEncoder-LBScanEncoder)/(DWEL_MetaInfo.NoShotsPerScan-1)
-;  NumBlank = 0
-;  BlankVec = bytarr(DWEL_MetaInfo.NoShotsPerScan)
   ZeroWaveform = intarr(DWEL_MetaInfo.NoSamplesPerShot)
   for i = 0, aligned_nl-1, 1 do begin    
     for j = 0L, aligned_ns-1, 1  do begin
       if (AlignedMask[j, i] eq 0) or (shotind ge DWEL_MetaInfo.LastShotInd+1) then begin
-      mask = 0
-      AncillaryArray[j,*] = [fix(Trigger), fix(SunSensor), 0, 0, $
-        0, 0, fix(mask), 0, $
-        0]
-      DataArray[j,*] = ZeroWaveform
-      continue
+         mask = 0
+         AncillaryArray[j,*] = [fix(Trigger), fix(SunSensor), 0, 0, $
+                                  0, 0, fix(mask), 0, $
+                                  0]
+         DataArray[j,*] = ZeroWaveform
+         continue
       endif
       H5S_SELECT_HYPERSLAB, wave_space, [[shotind], [0]], [[1], [DWEL_MetaInfo.NoSamplesPerShot]], /reset
       Waveform = h5d_read(waveset, file_space=wave_space, MEMORY_SPACE = memspace)
@@ -141,10 +129,8 @@ function AlignedDataCube, DWEL_MetaInfo, DataCube_File, AlignedMaskFile, Wavelen
       WaveformMax = max(waveform, max_I)
       
       DataArray[j,*] = Waveform
-;      ScanEncoder = encoders[0, shotind]
-;      ShotZen = double(262144 - ScanEncoder) / double(524288) * 2 * 180.0
-      ; fake zenith and scan encoder values from the aligned image
-      ScanEncoder = 524288*(j+0.5)/double(aligned_ns)
+      ; fake scan encoder values and zenith angles from the aligned image
+      ScanEncoder = 524288*(1 - (j+0.5)/double(aligned_ns))
       ShotZen = double(262144 - ScanEncoder) / double(524288) * 2 * 180.0
       RotaryEncoder = encoders[1, shotind]
       ShotAzim = double(RotaryEncoder) / double(524288) * 2 * 180.0
@@ -170,7 +156,6 @@ function AlignedDataCube, DWEL_MetaInfo, DataCube_File, AlignedMaskFile, Wavelen
     writeu, AncillaryFID, AncillaryArray
   endfor
   
-  ;h5t_close, wave_datatype
   h5s_close, wave_space
   h5s_close, memspace
   h5d_close, waveset
@@ -195,25 +180,18 @@ function AlignedDataCube, DWEL_MetaInfo, DataCube_File, AlignedMaskFile, Wavelen
   
 end
 
-pro DWEL2AlignedCube_cmd, DWEL_H5File, AlignedMaskFile, DataCube_File, Wavelength, DWEL_Height, $
-  beam_div, srate, nadirelevshift
+pro DWEL2AlignedCube_cmd, DWEL_H5File, AlignedMaskFile, DataCube_File, Wavelength, Wavelength_Label, DWEL_Height, $
+  beam_div, srate
+
   compile_opt idl2
   envi, /restore_base_save_files
   envi_batch_init
 
   ND_Nam=['ND0','ND015','ND030','ND1','ND2','ND3','ND045','ND115','ND130','ND145','Unknown']
   DWEL_ND_Filter=0
-  
-;  beam_div = 2.5 ; mrad
-;  srate = 2.0 ; smp/ns, 
 
-  DWEL_MetaInfo = AlignedCheckDWEL(DWEL_H5File, Wavelength, nadirelevshift)
-  HeaderInfo = AlignedDataCube(DWEL_MetaInfo, DataCube_File, AlignedMaskFile, Wavelength, nadirelevshift)
-;  HeaderInfo = {samples:1452, lines:490, $
-;    databands:1594, ancillarybands:9, offset:0, $
-;    filetype:'ENVI Data Cube', datatype:12, $
-;    ancillarydatatype:14, interleave:1, sensortype:'DWEL', $
-;    byteorder:0, wavelengthunit:'metres', range:120.0}
+  DWEL_MetaInfo = AlignedCheckDWEL(DWEL_H5File, Wavelength)
+  HeaderInfo = AlignedDataCube(DWEL_MetaInfo, DataCube_File, AlignedMaskFile, Wavelength)
   
   ;get path and evi_file name as separate strings
   last=strpos(DWEL_H5File,path_sep(),/reverse_search)
@@ -244,13 +222,6 @@ pro DWEL2AlignedCube_cmd, DWEL_H5File, AlignedMaskFile, DataCube_File, Wavelengt
   Post_Info=[ $
   'Data Start = '+strtrim(string(0),2),$
   'Actual scans completed = '+strtrim(string(DWEL_MetaInfo.TotalNoScans),2)]
-  ;List the file details and see that all is OK
-  ;dwel_height = 1.75
-  Manual_Info=[ $
-  'ND Filter = '+strtrim('None',2),$
-  'EVI height = '+strtrim(DWEL_Height,2)]
-  ;Info_Text=[Name_Info,'Path = '+strtrim(f_path,2),' ',Site_Info,' ',$
-  ;  Scan_Info,' ',Post_Info,' ',Manual_Info,'All OK ? (Y/N)']
   
   DWEL_Scan_Info=[Name_Info,Site_Info,Scan_Info,Post_Info]
   if (DWEL_ND_Filter le 10) then $
@@ -290,8 +261,7 @@ pro DWEL2AlignedCube_cmd, DWEL_H5File, AlignedMaskFile, DataCube_File, Wavelengt
     'Laser Power','Waveform Mean','Mask','Zenith','Azimuth']
   
   DWEL_Adaptation=['Band "Waveform Mean" is actually "Waveform Max"', 'Band "Scan Encoder" is value corrected for nadir shift in HDF raw data']
-  DWEL_Adaptation=[DWEL_Adaptation, 'Wavelength='+strtrim(Wavelength, 2)]
-  DWEL_Adaptation=[DWEL_Adaptation, 'Nadir shift of scan encoder='+strtrim(nadirelevshift, 2)]
+  DWEL_Adaptation=[DWEL_Adaptation, 'Wavelength='+strtrim(Wavelength_Label, 2)]
   envi_assign_header_value, fid=anc_fid, $
     keyword='DWEL_Adaptation', $
     value=DWEL_Adaptation

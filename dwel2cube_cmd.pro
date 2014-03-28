@@ -249,7 +249,7 @@ function DataCube, DWEL_MetaInfo, DataCube_File, Wavelength
   
 end
 
-pro DWEL2Cube_cmd, DWEL_H5File, DataCube_File, Wavelength, Wavelength_Label, $
+pro dwel2cube_cmd, DWEL_H5File, DataCube_File, Wavelength, Wavelength_Label, $
                    DWEL_Height, beam_div, srate, nadirelevshift
 ;;
 ;; Because the names of the waveform datasets in HDF5 files were

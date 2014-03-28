@@ -36,7 +36,9 @@ EVI_cylindrical_azumith:'cylaz', $
 EVI_gap_dist_info:'gap', $
 EVI_zen_azm_average_info:'web', $
 EVI_trunk_info:'trunk',$
-EVI_pointcloud_info:'ptcld' $
+EVI_pointcloud_info:'ptcld', $
+
+dwel_adaptation:'dwel_import'
 }
 ;*** End of repeated code.
 

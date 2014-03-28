@@ -226,7 +226,7 @@ function DataCube_EncoderCorr, DWEL_MetaInfo, DataCube_File, Wavelength
   
 end
  
-pro DWEL2Cube_EncoderCorr_cmd, DWEL_H5File, oldancillaryfile_name, DWEL_Casing_Mask, BenchLineInd, DataCube_File, $
+pro DWEL2Cube_EncoderCorr_cmd, DWEL_H5File, oldancillaryfile_name, DWEL_Casing_Mask, DataCube_File, $
   Wavelength, Wavelength_Label, DWEL_Height, beam_div, srate 
 ;;
 ;; Because the names of the waveform datasets in HDF5 files were
@@ -255,7 +255,7 @@ pro DWEL2Cube_EncoderCorr_cmd, DWEL_H5File, oldancillaryfile_name, DWEL_Casing_M
   endif
 
   ; get the correction of scan encoder values from old ancillary file and a casing mask
-   Correction= Get_ScanEncoderCorrection(oldancillaryfile_name, DWEL_Casing_Mask, BenchLineInd)
+   Correction= Get_ScanEncoderCorrection(oldancillaryfile_name, DWEL_Casing_Mask)
    ;;ScanEncoderCorrection = Correction.ScanEncoderCorrection
   
   ; start import HDF5 file to data cube with correction of scan encoder values

@@ -3,10 +3,6 @@ nl = size(InputImage, 1);
 ns = size(InputImage, 2);
 nd = size(InputImage, 3);
 
-% nd = 2; % number of variables
-
-% gapopen = -(512^2+100^2);
-
 % use new line2 as the next line1 and do nothing to combine two versions of
 % alignments. 
 gfImage = -1*ones(nl, ns*2, nd);
@@ -57,17 +53,8 @@ end
 AlignedImage = -1*ones(nl, ns*2, nd);
 AlignedImage(nl,:,:) = gfImage(nl,:,:);
 
-% AlignedImage1 = -1*ones(nl, ns*2);
-% AlignedImage2 = -1*ones(nl, ns*2);
-
 p2 = newseqpath(nl-1,:); p2 = p2(p2~=-1);
 for n=nl-1:-1:startline+2
-%     for d=1:nd
-%         tmpseq = gfImage(n,:,d); tmpseq = tmpseq(tmpseq~=-1);
-%         tmpseq2 = zeros(size(p2)); 
-%         tmpseq2(p2~=0) = tmpseq;
-%         AlignedImage(n, 1:length(p2),d) = shiftdim(tmpseq2', -1);
-%     end
     tmpseq = gfImage(n,:,:); 
     tmpseq = tmpseq(1, gfImage(n,:,1)~=-1, :);
     tmpseq2 = zeros(1, length(p2), nd);
@@ -105,9 +92,6 @@ if startline>1
         end
     end 
 end
-% tmpind = find(AlignedImage(2,:,1)~=0 & AlignedImage(2,:,1)~=-1);
-% tmpcount = sum(InputImage(1, 1:ns, 1)~=0);
-% AlignedImage(1, tmpind(end-tmpcount+1:end), :) = InputImage(1,InputImage(1,1:ns,1)~=0,:);
 
 AlignedMask = zeros(size(AlignedImage(:,:,1)));
 AlignedMask(AlignedImage(:,:,1)~=0 & AlignedImage(:,:,1)~=-1) = 1;

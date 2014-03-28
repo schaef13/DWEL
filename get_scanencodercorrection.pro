@@ -5,7 +5,7 @@
 ; the uncorrected scan encoder values
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchLineInd
+function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask
 
   compile_opt idl2
   envi, /restore_base_save_files
@@ -59,45 +59,27 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchL
   NadirCorrection = fltarr(nl_anc)
   ; an array to store the correction of scan encoder of each scan line
   ScanEncoderCorrection = fltarr(nl_anc)
-  ; because we've seen some unexpected pattern of encoder values in the first scan line
-  ; we will use the encoder values in the second scan line as a benchamrk to which all other scan lines will be aligned
-  ; BenchLineInd = 1 
-  CasingInd = where(commask[*,BenchLineInd], NCasingPixel)
-  tmpind = where( ScanEncoderImg[CasingInd[0:NCasingPixel-2],BenchLineInd]-ScanEncoderImg[CasingInd[1:NCasingPixel-1],BenchLineInd] gt 262144, tmpcount )
-  if (tmpcount ge 1) then begin ; the casing region is split into two parts due to extreme warpping
-    ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], BenchLineInd] = $
-      ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], BenchLineInd] + 524288
-  endif
-  NadirCorrection[BenchLineInd] = (min(ScanEncoderImg[CasingInd, BenchLineInd])+max(ScanEncoderImg[CasingInd, BenchLineInd])) / 2.0
-  ;; NadirCorrection[BenchLineInd] = mean(ScanEncoderImg[CasingInd, BenchLineInd])
-  IF NadirCorrection[BenchLineInd] LT 0 THEN BEGIN
-     NadirCorrection[BenchLineInd] = NadirCorrection[BenchLineInd] + 524288
-  ENDIF 
-  IF NadirCorrection[BenchLineInd] GT 524288 THEN BEGIN
-     NadirCorrection[BenchLineInd] = NadirCorrection[BenchLineInd] - 524288
-  ENDIF 
-  BenchScanEncoder = (min(ScanEncoderImg[CasingInd, BenchLineInd])+max(ScanEncoderImg[CasingInd, BenchLineInd])) / 2.0
-  ; correction of the first scan line
-  CasingInd = where(commask[*,0], NCasingPixel)
-  if (NCasingPixel eq 0) then begin
-    ScanEncoderCorrection[0] = 0L
-  endif else begin
-    tmpind = where( ScanEncoderImg[CasingInd[0:NCasingPixel-2],0]-ScanEncoderImg[CasingInd[1:NCasingPixel-1],0] gt 262144, tmpcount )
-    if (tmpcount ge 1) then begin ; the casing region is split into two parts due to extreme warpping
-      ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], 0] = $
-        ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], 0] + 524288
-    endif
-    NadirCorrection[0] = (min(ScanEncoderImg[CasingInd,0])+max(ScanEncoderImg[CasingInd, 0])) / 2.0
-    ;; NadirCorrection[0] = mean(ScanEncoderImg[CasingInd, 0])
-    IF NadirCorrection[0] LT 0 THEN BEGIN
-       NadirCorrection[0] = NadirCorrection[0] + 524288
-    ENDIF 
-    IF NadirCorrection[0] GT 524288 THEN BEGIN
-       NadirCorrection[0] = NadirCorrection[0] - 524288
-    ENDIF     
-  endelse
+  ;; ; correction of the first scan line
+  ;; CasingInd = where(commask[*,0], NCasingPixel)
+  ;; if (NCasingPixel eq 0) then begin
+  ;;   ScanEncoderCorrection[0] = 0L
+  ;; endif else begin
+  ;;   tmpind = where( ScanEncoderImg[CasingInd[0:NCasingPixel-2],0]-ScanEncoderImg[CasingInd[1:NCasingPixel-1],0] gt 262144, tmpcount )
+  ;;   if (tmpcount ge 1) then begin ; the casing region is split into two parts due to extreme warpping
+  ;;     ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], 0] = $
+  ;;       ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], 0] + 524288
+  ;;   endif
+  ;;   NadirCorrection[0] = (min(ScanEncoderImg[CasingInd,0])+max(ScanEncoderImg[CasingInd, 0])) / 2.0
+  ;;   ;; NadirCorrection[0] = mean(ScanEncoderImg[CasingInd, 0])
+  ;;   IF NadirCorrection[0] LT 0 THEN BEGIN
+  ;;      NadirCorrection[0] = NadirCorrection[0] + 524288
+  ;;   ENDIF 
+  ;;   IF NadirCorrection[0] GT 524288 THEN BEGIN
+  ;;      NadirCorrection[0] = NadirCorrection[0] - 524288
+  ;;   ENDIF     
+  ;; endelse
   ; correction of the remaining scan lines
-  for l=1,nl_anc-1,1 do begin
+  for l=0,nl_anc-1,1 do begin
     CasingInd = where(commask[*,l], NCasingPixel)
     if (NCasingPixel eq 0) then begin
       ScanEncoderCorrection[l] = ScanEncoderCorrection[l-1]
@@ -120,10 +102,9 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask, BenchL
     ENDIF
   endfor
 
-  ;;ScanEncoderCorrection = BenchScanEncoder - NadirCorrection
   NadirCorrection = 0 - NadirCorrection
 
-  return, {NadirCorrection:NadirCorrection} ;;, BenchScanEncoder:BenchScanEncoder, ScanEncoderCorrection:ScanEncoderCorrection}
+  return, {NadirCorrection:NadirCorrection}
 
 end
 
