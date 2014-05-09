@@ -64,7 +64,7 @@ pro dwel_center_zenith, DWEL_AncFile, Casing_MaskFile
     out_interval = 220.0/360.0*524288.0/float(CaseEdgePos[1,il]-1-CaseEdgePos[0,il])
     casing_interval = (360.0-220.0)/360.0*524288.0/float(anc_ns-(CaseEdgePos[1,il]-1-CaseEdgePos[0,il]))
     zenith_pos = (CaseEdgePos[0,il]+CaseEdgePos[1,il])/2.0
-    tmppos = fix((CaseEdgePos[0,il]+CaseEdgePos[1,il])/2)
+    ;;tmppos = fix((CaseEdgePos[0,il]+CaseEdgePos[1,il])/2)
     Syn_ScanEncoder[CaseEdgePos[0,il]+1:CaseEdgePos[1,il]-1, il] = $
       (indgen(CaseEdgePos[1,il]-1-CaseEdgePos[0,il])+CaseEdgePos[0,il]+1-zenith_pos)*out_interval+262144.0
     Syn_ScanEncoder[0:CaseEdgePos[0,il], il] = $

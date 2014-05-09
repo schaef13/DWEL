@@ -27,6 +27,8 @@ end
 
 pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMeanWfFile
   compile_opt idl2
+  envi, /restore_base_save_files
+  envi_batch_init, /no_status_window
   
   lun=99
   ofile=101
@@ -109,25 +111,23 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
   if(not file_test(ancillaryfile_name)) then begin
     message_text=[ $
     'Default ancillary file is not present',$
-    'default name: '+strtrim(ancillaryfile_name,2),$
-    'Find an ancillary File ? (Yes) or Re-start (No)?' $
+    'default name: '+strtrim(ancillaryfile_name,2)$
     ]
-    result=dialog_message(message_text,/question,$
-    title='Default ancillary file NOT present')
-    if(result eq 'No') then goto,cleanup
+    print, message_text
+    GOTO, cleanup
   
-  get_anc:
-    outfile = dialog_pickfile(title='Select ancillary DWEL_file', $
-            file=ancillaryfile_name,path=f_path, /must_exist)
-  ;check for error or cancel button hit
-    if (outfile eq '') then begin
-      result=dialog_message('Try again ? (No/Yes) ',/question,$
-      title='No file selected or operation cancelled !')
-      if(result eq 'No') then begin
-        goto, cleanup
-      endif else goto, get_anc
-    endif
-    anc_name=outfile
+  ;; get_anc:
+  ;;   outfile = dialog_pickfile(title='Select ancillary DWEL_file', $
+  ;;           file=ancillaryfile_name,path=f_path, /must_exist)
+  ;; ;check for error or cancel button hit
+  ;;   if (outfile eq '') then begin
+  ;;     result=dialog_message('Try again ? (No/Yes) ',/question,$
+  ;;     title='No file selected or operation cancelled !')
+  ;;     if(result eq 'No') then begin
+  ;;       goto, cleanup
+  ;;     endif else goto, get_anc
+  ;;   endif
+  ;;   anc_name=outfile
   endif
   
   envi_open_file, ancillaryfile_name, r_fid=ancillaryfile_fid, $
@@ -455,16 +455,16 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
     goto, cleanup
   endif
   
-  ;set up the odometer
-  Info_Text=['Input file : '+strtrim(fname,2),$
-        'Output baseline fix file : '+strtrim(out_name,2),$
-        'Output saturation fix file : '+strtrim(out_satfix_name,2),$
-        ' ',$
-        'Applying EVI Base and Sat fix in '$
-        +strtrim(string(n_elements(where(band_pos gt -1))),2)+' Bands']
-  envi_report_init,Info_Text,title='Applying EVI Base and Sat fix',$
-  base=wb_report,/interupt
-  envi_report_inc,wb_report,num_tiles
+  ;; ;set up the odometer
+  ;; Info_Text=['Input file : '+strtrim(fname,2),$
+  ;;       'Output baseline fix file : '+strtrim(out_name,2),$
+  ;;       'Output saturation fix file : '+strtrim(out_satfix_name,2),$
+  ;;       ' ',$
+  ;;       'Applying EVI Base and Sat fix in '$
+  ;;       +strtrim(string(n_elements(where(band_pos gt -1))),2)+' Bands']
+  ;; envi_report_init,Info_Text,title='Applying EVI Base and Sat fix',$
+  ;; base=wb_report,/interupt
+  ;; envi_report_inc,wb_report,num_tiles
   
   ;set up some things outside the loop
   info_text=[strtrim(string('Processing Cancelled'),2),$
@@ -559,17 +559,17 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
     sat_max_image[*,i]=float(max(satfixeddata[*,pos_pos],DIMENSION=2))
     ;=================================================
     
-  ;update the odometer
-    envi_report_stat,wb_report,i,num_tiles,cancel=cancel
-  ;act on cancel
-    if(cancel) then begin
-      result=dialog_message(info_text,$
-      title='EVI Base and Sat Fix cancelled');, $
-      ;dialog_parent=event.top)
-      envi_tile_done, tile_id
-      envi_report_init, base=wb_report,/finish
-      goto,cleanup
-    endif
+;;  ;update the odometer
+;;    envi_report_stat,wb_report,i,num_tiles,cancel=cancel
+  ;; ;act on cancel
+  ;;   if(cancel) then begin
+  ;;     result=dialog_message(info_text,$
+  ;;     title='EVI Base and Sat Fix cancelled');, $
+  ;;     ;dialog_parent=event.top)
+  ;;     envi_tile_done, tile_id
+  ;;     envi_report_init, base=wb_report,/finish
+  ;;     goto,cleanup
+  ;;   endif
     data=0
     satfixeddata = 0
     temp=0b
@@ -584,7 +584,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
   
   ;clear up and complete the action
   envi_tile_done, tile_id
-  envi_report_init, base=wb_report,/finish
+;;  envi_report_init, base=wb_report,/finish
   free_lun, ofile,/force
   data=0
   temp=0b
@@ -768,7 +768,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
   if (text_err ne 0) then begin
      print, strtrim('Halting evi_baseline_sat_fix', 2)
      print, strtrim(['Error opening output file '+strtrim(ancname,2)], 2)
-    goto, cleanup
+     goto, cleanup
   endif
   
   pos_pos=where(mask_all ne 0)

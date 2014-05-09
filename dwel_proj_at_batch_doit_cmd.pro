@@ -465,6 +465,8 @@ end
 ;======================================================================
 pro dwel_proj_at_batch_doit_cmd, script_file
 compile_opt idl2
+  envi, /restore_base_save_files
+  envi_batch_init, /no_status_wind
 
 ;doit for the EVI derived ENVI file write utility procedure that
 
@@ -557,7 +559,7 @@ scale=1.0d0
 r2mr=1000.0
 Proj_name=['Hemispherical','Andrieu Normal','Andrieu Transpose']
 envi_set_path,path_to,/no_set
-log_file=strtrim(path_to,2)+'\default_proj_log.log'
+log_file=strtrim(path_to,2)+PATH_SEP()+'default_proj_log.log'
 Log_file_set=0b
 ;script_file='Hard Coded'
 Run_Desc='Default Title'
@@ -589,14 +591,16 @@ if(status ne 0) then begin
     '',$
     'If ENVI/IDL is running some more information',$
     'can be found in the IDL log window']
-     result=dialog_message(info_text,/error,title='Error in script_file')
+    print, Info_text
+;;     result=dialog_message(info_text,/error,title='Error in script_file')
   endif else begin
     Info_text=['EVI Project_AT script file has  syntax',$
     'or other problems - check it!',$
     '',$
     'If ENVI/IDL is running some more information',$
     'can be found in the IDL log window']
-     result=dialog_message(info_text,/error,title='Error in script_file')
+    print, Info_text
+;;     result=dialog_message(info_text,/error,title='Error in script_file')
   endelse
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
@@ -630,7 +634,8 @@ if (strtrim(log_file,2) eq '') then begin
   '',$
   'If ENVI/IDL is running some more information',$
   'can be found in the IDL log window']
-   result=dialog_message(info_text,/error,title='Error in script_file')
+  print, Info_text
+;;   result=dialog_message(info_text,/error,title='Error in script_file')
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
 ;;clean up pointers
@@ -669,7 +674,8 @@ if (text_err ne 0) then begin
   '',$
   'If ENVI/IDL is running some more information',$
   'can be found in the IDL log window']
-   result=dialog_message(info_text,/error,title='Error in script_file')
+  print, Info_text
+;;   result=dialog_message(info_text,/error,title='Error in script_file')
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
 ;;clean up pointers
@@ -692,25 +698,25 @@ flush, tfile
 
 log_file_set=1b
 
-;first check you are doing the right process!
-if (strtrim(strlowcase(script_type),2) ne strtrim(strlowcase(run_type),2)) then begin
-  Info_Text=[$
-  'Warning: Script Type is '+strtrim(script_type),$
-  'However: Run Type is '+strtrim(run_type),$
-  '',$
-  'Are you sure you wish to make this run (Yes/No)?']
-  response=dialog_message(Info_Text,$
-         /question,title='Incorrect Script File?')
-  if(response eq 'No') then begin
-;;get state pointer to close up the widgets
-;    widget_control,event.top,get_uvalue=pstate
-;;clean up pointers
-;    result=ptr_valid(pstate)
-;    if (result) then ptr_free, pstate
-;    widget_control,event.top,/destroy
-    goto, out
-  endif
-endif
+;; ;first check you are doing the right process!
+;; if (strtrim(strlowcase(script_type),2) ne strtrim(strlowcase(run_type),2)) then begin
+;;   Info_Text=[$
+;;   'Warning: Script Type is '+strtrim(script_type),$
+;;   'However: Run Type is '+strtrim(run_type),$
+;;   '',$
+;;   'Are you sure you wish to make this run (Yes/No)?']
+;;   response=dialog_message(Info_Text,$
+;;          /question,title='Incorrect Script File?')
+;;   if(response eq 'No') then begin
+;; ;;get state pointer to close up the widgets
+;; ;    widget_control,event.top,get_uvalue=pstate
+;; ;;clean up pointers
+;; ;    result=ptr_valid(pstate)
+;; ;    if (result) then ptr_free, pstate
+;; ;    widget_control,event.top,/destroy
+;;     goto, out
+;;   endif
+;; endif
 
 ;Now we need to test that the input is OK
 print,'Checking the input information for validity'
@@ -1004,8 +1010,8 @@ if (count gt 0) then begin
   'evi_proj_at_batch terminating']
   for j=0,n_elements(info_text)-1 do begin
     print,info_text[j]
-  endfor
-  result=dialog_message(info_text,/error,title='Errors in evi_proj_at_batch input')
+ ENDFOR
+;;  result=dialog_message(info_text,/error,title='Errors in evi_proj_at_batch input')
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
 ;;clean up pointers

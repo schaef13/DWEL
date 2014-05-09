@@ -194,13 +194,15 @@ endif
 
 ;test for zero n_case
 if (n_case le 0) then begin
-  ; Use this as a flag to select files manually
-  datafile = envi_pickfile(title='Select EVI files to filter')
-  ; Ancillary and Output filenames will be set to defaults, so ignore any that are
-  ; present in the batch file
-  present[4] = 0b
-  present[5] = 0b
-  n_case = n_elements(datafile)
+  ;; ; Use this as a flag to select files manually
+  ;; datafile = envi_pickfile(title='Select EVI files to filter')
+  ;; ; Ancillary and Output filenames will be set to defaults, so ignore any that are
+  ;; ; present in the batch file
+  ;; present[4] = 0b
+  ;; present[5] = 0b
+  ;; n_case = n_elements(datafile)
+   print, 'n_case is less than one!'
+   GOTO, go_back
 endif else begin
   ;n_case so set up the arrays
   datafile=strarr(n_case)
@@ -495,6 +497,8 @@ end
 
 pro dwel_pfilter_batch_doit_cmd, script_file
 compile_opt idl2
+  envi, /restore_base_save_files
+  envi_batch_init, /no_status_window
 
 RESOLVE_ROUTINE, 'apply_evi_filter_nu'
 
@@ -601,14 +605,18 @@ if(status ne 0) then begin
     '',$
     'If ENVI/IDL is running some more information',$
     'can be found in the IDL log window']
-     result=dialog_message(info_text,/error,title='Error in script_file')
+    print, Info_text
+    GOTO, out
+;;     result=dialog_message(info_text,/error,title='Error in script_file')
   endif else begin
     Info_text=['EVI pfilter script file has syntax',$
     'or other problems - check it!',$
     '',$
     'If ENVI/IDL is running some more information',$
     'can be found in the IDL log window']
-     result=dialog_message(info_text,/error,title='Error in script_file')
+    print, Info_text
+    GOTO, out
+;;     result=dialog_message(info_text,/error,title='Error in script_file')
   endelse
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
@@ -646,7 +654,8 @@ if (strtrim(log_file,2) eq '') then begin
   '',$
   'If ENVI/IDL is running some more information',$
   'can be found in the IDL log window']
-   result=dialog_message(info_text,/error,title='Error in script_file')
+  print, Info_text
+;;   result=dialog_message(info_text,/error,title='Error in script_file')
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
 ;;clean up pointers
@@ -687,7 +696,8 @@ if (text_err ne 0) then begin
   '',$
   'If ENVI/IDL is running some more information',$
   'can be found in the IDL log window']
-   result=dialog_message(info_text,/error,title='Error in script_file')
+  print, Info_text
+;;   result=dialog_message(info_text,/error,title='Error in script_file')
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
 ;;clean up pointers
@@ -723,8 +733,8 @@ if (min_ind ne -1 or max_ind ne -1) then begin
       'evi_pfilter_batch terminating']
       for j=0,n_elements(info_text)-1 do begin
         print,info_text[j]
-      endfor
-      result=dialog_message(info_text,/error,title='Errors in evi_pfilter_batch input')
+     ENDFOR
+;;      result=dialog_message(info_text,/error,title='Errors in evi_pfilter_batch input')
 ;      ;get state pointer to close up the widgets
 ;      widget_control,event.top,get_uvalue=pstate
 ;      ;clean up pointers
@@ -741,25 +751,25 @@ endif
 
 log_file_set=1b
 
-;first check you are doing the right process!
-if (strtrim(strlowcase(script_type),2) ne strtrim(strlowcase(run_type),2)) then begin
-  Info_Text=[$
-  'Warning: Script Type is '+strtrim(script_type),$
-  'However: Run Type is '+strtrim(run_type),$
-  '',$
-  'Are you sure you wish to make this run (Yes/No)?']
-  response=dialog_message(Info_Text,$
-         /question,title='Incorrect Script File?')
-  if(response eq 'No') then begin
-;;get state pointer to close up the widgets
-;    widget_control,event.top,get_uvalue=pstate
-;;clean up pointers
-;    result=ptr_valid(pstate)
-;    if (result) then ptr_free, pstate
-;    widget_control,event.top,/destroy
-    goto, out
-  endif
-endif
+;; ;first check you are doing the right process!
+;; if (strtrim(strlowcase(script_type),2) ne strtrim(strlowcase(run_type),2)) then begin
+;;   Info_Text=[$
+;;   'Warning: Script Type is '+strtrim(script_type),$
+;;   'However: Run Type is '+strtrim(run_type),$
+;;   '',$
+;;   'Are you sure you wish to make this run (Yes/No)?']
+;;   response=dialog_message(Info_Text,$
+;;          /question,title='Incorrect Script File?')
+;;   if(response eq 'No') then begin
+;; ;;get state pointer to close up the widgets
+;; ;    widget_control,event.top,get_uvalue=pstate
+;; ;;clean up pointers
+;; ;    result=ptr_valid(pstate)
+;; ;    if (result) then ptr_free, pstate
+;; ;    widget_control,event.top,/destroy
+;;     goto, out
+;;   endif
+;; endif
 
 ; Initialise a variable to keep track of disk space required
 disk_needed = 0.0
@@ -995,7 +1005,7 @@ if (count gt 0) then begin
   for j=0,n_elements(info_text)-1 do begin
     print,info_text[j]
   endfor
-  result=dialog_message(info_text,/error,title='Errors in evi_pfilter_batch input')
+;;  result=dialog_message(info_text,/error,title='Errors in evi_pfilter_batch input')
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
 ;;clean up pointers

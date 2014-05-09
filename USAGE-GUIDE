@@ -1,0 +1,73 @@
+USAGE-GUIDE of DWEL Processing Programs
+
+Zhan Li, zhanli86@bu.edu
+
+===============================================================
+This guide gives typical steps to process DWEL scans including:
+1) Import HDF5 file of DWEL data to ENVI data cube.
+2) Correct jitter in scans if needed. 
+3) Baseline fix and saturation fix. [to be updated]
+4) Pulse filtering. [to be updated]
+5) AT projection.
+6) Calibration (apparent reflectance caculation). [to be added]
+7) Pgap calculation. [to be added]
+8) Point cloud generation. [to be updated]
+9) LAI and foliage profile estimate. [to be added]
+10) Conversion from ENVI data cube to SPD data format
+===============================================================
+
+1) Import HDF5 file of DWEL data to ENVI data cube. 
+---------------------------------------------------
+
+(a) dwel2cube_cmd.pro
+
+    dwel2cube_cmd, DWEL_H5File, DataCube_File, Wavelength, Wavelength_Label, DWEL_Height, beam_div, srate, nadirelevshift
+
+    This routine simply reads angular measurements and waveform data from an HDF5 file and creates a ENVI data cube and an ancillary ENVI file. 
+
+---------------------------------------------------
+
+You may find the zenith/nadir positions of the scanning image are not correct. At present, the zenith/nadir pointing of the scanning mirror is not well calibrated. The encoder values are not meausred with regard to the correct nadir/zenith positions. To fix this, we correct the encoder values by assigning zero (nadir position, zero elevation angle) to  the center of the casing area. You need three steps to complete this fix. 
+
+(b1) datacube2rangeimage.pro
+
+     datacube2rangeimage, DataCubeFile, Tzero, RangeImageFile
+
+     This routine creates a range image from the data cube. The range image will then be used to extract casing area. Tzero is where the outgoing pulse peak is in unit of ns, usually around 150 ns. 
+
+(b2) Create an initial casing mask.
+
+     In ENVI, "Basic Tools"->"Masking"->"Build Mask", creates an initial mask from the range image. 
+
+(b3) dwel2cube_encodercorr_cmd.pro
+
+     dwel2cube_encodercorr_cmd, DWEL_H5File, oldancillaryfile_name, DWEL_Casing_Mask, DataCube_File, Wavelength, Wavelength_Label, DWEL_Height, beam_div, srate
+
+     DWEL_Casing_Mask is the initial mask from the range image that is built from step b2. This is UNfiltered mask. 
+
+-------------------------------------------------
+
+You may also find jitter in the scanning image if the scan was collected before the jittering issue of the DWEL instrument was solved (before March 2014). To fix the jitter, we use gene sequence alignment technique called dynamic programming to align the scan lines. This will generate an alignment mask. Then a new jitter-reduced/free data cube will be generated according to this mask. 
+
+(c1) To use the alignment program, go to the subfolder "JitterFix". The program is written in Matlab. There is a bash shell script "AlignScanImage.sh" which integrates the Matlab function calling and can be used directly in the Linux shell. Go to the folder where the shell script is, 
+     
+     $ ./AlignScanImage.sh --help
+
+     for information about how to use this shell script. 
+
+    The alignment program creates a tiff file of alignment mask. The mask tells where gap pixels are located such that the scan lines are best aligned according the criteria of the dynamic programming. Notice that the gaps given by this program are not necessarily true missing shots by the DWEL instrument. They are just gaps identified by the program to achieve an optimal alignment it can find. 
+
+(c2) dwel_hdf_flag_shots.pro
+     
+     dwel_hdf_flag_shots, DWEL_H5File, ancillaryfile_name, Filtered_Casing_Mask_File, Flag_H5File
+     
+     This routine add a new dataset in HDF5 files of scans. Each value in the dataset labels a shot as inside the case, outside the case or invalid. The "Filtered_Casing_Mask_File" is the morph-filtered mask. The HDF5 file with this added dataset will be used in the next step to generate jitter-reduced/free data cubes. 
+
+(c3) dwel2alignedcube_cmd.pro
+
+     dwel2alignedcube_cmd, DWEL_H5File, Flag_H5File, AlignedMaskFile, DataCube_File, Wavelength, Wavelength_Label, DWEL_Height, beam_div, srate
+     
+     This routine takes the alignment mask file from the alignment program to generate a jitter-reduced/free data cube. 
+
+-------------------------------------------------
+

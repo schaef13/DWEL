@@ -23,16 +23,14 @@ pro FilterRangeMask, oldRangeMask, ancfile, newRangeMask
   endif
   
   mask = envi_get_data(dims=dims, fid=infile_fid, pos=0)
-;;  maskclose = morph_open(mask, [1,1,1,1,1,1,1,1,1,1])
-  maskclose = morph_open(mask, [1,1,1])
-  maskcloseopen = morph_close(maskclose, [1,1,1])
-;  maskclose = morph_close(mask, [[0,1,0],[1,1,1],[0,1,0]])
-;  maskcloseopen = morph_open(maskclose, [[0,1,0],[1,1,1],[0,1,0]])
+;;  maskopen = morph_open(mask, [1,1,1,1,1,1,1,1,1,1,1])
+  maskopen = morph_open(mask, [1,1,1])
+  maskopenclose = morph_close(maskopen, [1,1,1])
   
   envi_open_file, ancfile, r_fid=anc_fid, /no_realize
   basicmask = byte(envi_get_data(dims=dims, fid=anc_fid, pos=6))
   
-  newmask = byte(maskcloseopen) * basicmask
+  newmask = byte(maskopenclose) * basicmask
   
   openw, out_fid, newRangeMask, /get_lun
   writeu, out_fid, (newmask)

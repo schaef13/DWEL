@@ -237,11 +237,13 @@ pro DWEL2Cube_EncoderCorr_cmd, DWEL_H5File, oldancillaryfile_name, DWEL_Casing_M
 ;; data from HDF5 file.
 ;; Wavelength_Label: a number to be put in the header file. This is
 ;;the CORRECT wavelength number. 
+;; DWEL_Casing_Mask is simply from thresholding the range image, 
+;; NOT filtered by morphology windows. 
   
   ;resolve_all
   compile_opt idl2
   envi, /restore_base_save_files
-  envi_batch_init  
+  envi_batch_init, /NO_STATUS_WINDOW  
 
   ND_Nam=['ND0','ND015','ND030','ND1','ND2','ND3','ND045','ND115','ND130','ND145','Unknown']
   DWEL_ND_Filter=0
@@ -254,8 +256,17 @@ pro DWEL2Cube_EncoderCorr_cmd, DWEL_H5File, oldancillaryfile_name, DWEL_Casing_M
      return    
   endif
 
+  ;; DWEL_Casing_Mask is simply from thresholding the range image. We
+  ;; first filter the mask with morph filters to remove noises and
+  ;;fill holes in the mask and output the filtered mask to a new
+  ;;file. 
+  ;; Let's create the file name of the new mask. 
+  last = strpos(DWEL_Casing_Mask, '.img', /reverse_search)
+  newRangeMask = strmid(DWEL_Casing_Mask, 0, last) + '_morphopenclose.img'
+  FilterRangeMask, DWEL_Casing_Mask, oldancillaryfile_name, newRangeMask
+
   ; get the correction of scan encoder values from old ancillary file and a casing mask
-   Correction= Get_ScanEncoderCorrection(oldancillaryfile_name, DWEL_Casing_Mask)
+   Correction= Get_ScanEncoderCorrection(oldancillaryfile_name, newRangeMask)
    ;;ScanEncoderCorrection = Correction.ScanEncoderCorrection
   
   ; start import HDF5 file to data cube with correction of scan encoder values

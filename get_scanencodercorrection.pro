@@ -9,7 +9,7 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask
 
   compile_opt idl2
   envi, /restore_base_save_files
-  envi_batch_init
+  envi_batch_init, /NO_STATUS_WINDOW
   
   envi_open_file, ancillaryfile_name, r_fid=ancillaryfile_fid, $
                   /no_realize

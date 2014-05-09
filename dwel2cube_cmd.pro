@@ -7,6 +7,9 @@
 
 function CheckDWEL, DWEL_H5File, Wavelength, nadirelevshift
   compile_opt idl2
+
+  scanenc_ind = 0
+  rotateenc_ind = 1
   
   ;; open the HDF5 file
   fileid=h5f_open(DWEL_H5File)
@@ -16,12 +19,12 @@ function CheckDWEL, DWEL_H5File, Wavelength, nadirelevshift
   dim_encoders = size(encoders, /dimensions)
   
   ;; correct the shift of nadir
-  encoders[0, *] = ((encoders[0, *] - nadirelevshift) + 524288) mod 524288
+  encoders[scanenc_ind, *] = ((encoders[scanenc_ind, *] - nadirelevshift) + 524288) mod 524288
   
   ;; use the difference between every two scan encoder values to
   ;; determine the actual start and ending shots and to remove the
   ;;dummy shots at the beginning and the end. 
-  interval_diff = encoders[0, 0:dim_encoders[1]-2] - encoders[0, 1:dim_encoders[1]-1] ; the difference between two consecutive shots, the early one - the later one
+  interval_diff = encoders[scanenc_ind, 0:dim_encoders[1]-2] - encoders[scanenc_ind, 1:dim_encoders[1]-1] ; the difference between two consecutive shots, the early one - the later one
   tmpind = where(interval_diff ne 0, tmpcount, ncomplement=count, complement=dummyind)
   if (tmpcount gt 0) then begin
     shotstart = tmpind[0]
@@ -47,7 +50,7 @@ function CheckDWEL, DWEL_H5File, Wavelength, nadirelevshift
   ShotNumVec = ShotEndVec - ShotStartVec + 1 ; the number of shots per each scan line
   
   ;; number of scan lines per a whole 360-degree rotation. 
-  NoScanPerRotation = fix(TotalNoScans * 524288.0 / abs(encoders[1,0]-encoders[1,shotend]))
+  NoScanPerRotation = fix(TotalNoScans * 524288.0 / abs(encoders[rotateenc_ind,0]-encoders[rotateenc_ind,shotend]))
   
   ;; Get the largest number of shots in a scan. It is the dimension of the zenith axis
   NoShotsPerScan = max(ShotNumVec)
@@ -85,6 +88,9 @@ end
 
 function DataCube, DWEL_MetaInfo, DataCube_File, Wavelength
   compile_opt idl2
+
+  scanenc_ind = 0
+  rotateenc_ind = 1
   
   ;; create the name of the ancillary file from the given waveform
   ;;data cube file name. 
@@ -96,7 +102,7 @@ function DataCube, DWEL_MetaInfo, DataCube_File, Wavelength
   ;; virtually reverse the rotation direction of DWEL by changing the rotatary encoder values
   ;encoders[1, *] =  524288 - encoders[1, *]
   ; correct the shift of nadir
-  encoders[0, *] = ((encoders[0, *] - DWEL_MetaInfo.NadirScanEncoder) + 524288) mod 524288
+  encoders[scanenc_ind, *] = ((encoders[scanenc_ind, *] - DWEL_MetaInfo.NadirScanEncoder) + 524288) mod 524288
   
   ;; open the dataset of waveform and get the space of the dataset. 
   Waveset_Name = '/'+strtrim(string(Wavelength), 2)+' Waveform Data'
@@ -137,7 +143,7 @@ function DataCube, DWEL_MetaInfo, DataCube_File, Wavelength
     ;; NoShotsPerScan (number of column in a row), the following
     ;;generates a vector BlankPixelLoc which gives where we need some
     ;;dummy pixels to fill the extra space in this row. 
-    ScanEncoderVec =  encoders[0, DWEL_MetaInfo.ShotStart[i]:DWEL_MetaInfo.ShotEnd[i]] 
+    ScanEncoderVec =  encoders[scanenc_ind, DWEL_MetaInfo.ShotStart[i]:DWEL_MetaInfo.ShotEnd[i]] 
     ;; check how many blank pixels there will be. Insert the blank
     ;; pixels to the largest gaps between neighboring scan encoder values. 
     NumBlank = DWEL_MetaInfo.NoShotsPerScan - size(ScanEncoderVec,/n_elements)
@@ -199,8 +205,8 @@ function DataCube, DWEL_MetaInfo, DataCube_File, Wavelength
       WaveformMax = max(waveform, max_I)
       
       DataArray[j,*] = Waveform
-      ScanEncoder = encoders[0, shotind]
-      RotaryEncoder = encoders[1, shotind]
+      ScanEncoder = encoders[scanenc_ind, shotind]
+      RotaryEncoder = encoders[rotateenc_ind, shotind]
       ShotZen = double(262144 - ScanEncoder) / double(524288) * 2 * 180.0
       ShotAzim = double(RotaryEncoder) / double(524288) * 2 * 180.0
 ;      ;;;;;; temporarily fake azimuth angle b/c of the wrong azimuth encoders. 

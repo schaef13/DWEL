@@ -10,7 +10,15 @@ end
 
 ; Max_Zenith_Angle: in unit of degree
 ; output_resolution: in unit of mrad
-pro DWEL_Cube2AT, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolution
+pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolution
+  
+  ;; debug
+  print, 'enter dwel_cube2at'
+
+  compile_opt idl2
+  envi, /restore_base_save_files
+  envi_batch_init, /no_status_window
+
   ;;;;;;;;;;;;;;;;;;;;;;;;
   ; some default paramters
   def_ifov_x=4.0

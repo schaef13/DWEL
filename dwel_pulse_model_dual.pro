@@ -25,6 +25,7 @@ compile_opt idl2
 c=0.299792458
 c2=c/2.0
 
+;; NSF DWEL, CA Campaign 2013
 if (wavelength eq 1064) then begin
 ; Mean pulse model
   p_time=[ $
