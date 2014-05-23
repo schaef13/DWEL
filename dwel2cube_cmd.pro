@@ -50,7 +50,7 @@ function CheckDWEL, DWEL_H5File, Wavelength, nadirelevshift
   ShotNumVec = ShotEndVec - ShotStartVec + 1 ; the number of shots per each scan line
   
   ;; number of scan lines per a whole 360-degree rotation. 
-  NoScanPerRotation = fix(TotalNoScans * 524288.0 / abs(encoders[rotateenc_ind,0]-encoders[rotateenc_ind,shotend]))
+  NoScanPerRotation = fix(TotalNoScans * 524288.0 / abs(encoders[rotateenc_ind,shotstart]-encoders[rotateenc_ind,shotend]))
   
   ;; Get the largest number of shots in a scan. It is the dimension of the zenith axis
   NoShotsPerScan = max(ShotNumVec)

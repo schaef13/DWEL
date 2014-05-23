@@ -31,6 +31,7 @@ gfImage(startline+1, 1:newseqlen, :) = shiftdim(newseq2', -1);
 seqpath(startline, 1:newseqlen) = path1;
 seqpath(startline+1, 1:newseqlen) = path2;
 seq1 = gfnewseq2;
+strCR = [];
 for n=startline+1:nl-1
     seq2=zeros(nd, ns);
     tmpind = true(1, ns);
@@ -45,8 +46,11 @@ for n=startline+1:nl-1
     seqpath(n+1, 1:newseqlen) = path2;
     gfImage(n+1, 1:newseqlen, :) = shiftdim(newseq2', -1);
     seq1 = gfnewseq2;
-    fprintf('%d\n', n);
+    strout = num2str(n);
+    fprintf([strCR, strout]);
+    strCR = repmat('\b', 1, length(strout));
 end
+fprintf('\n');
 
 % update the path of the original sequence with the path of the gap-filled
 % sequence from last line to the first line
