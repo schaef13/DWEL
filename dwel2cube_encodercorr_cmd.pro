@@ -65,7 +65,7 @@ function CheckDWEL_EncoderCorr, DWEL_H5File, Wavelength, Correction
   ShotEndVec = [NegInd, shotend]
   ShotNumVec = ShotEndVec - ShotStartVec + 1
   
-  NoScanPerRotation = fix(TotalNoScans * 524288.0 / abs(encoders[1,0]-encoders[1,shotend]))
+  NoScanPerRotation = fix(TotalNoScans * 524288.0 / abs(encoders[1,shotstart]-encoders[1,shotend]))
   
   ; TotalNoScans is the dimension of the azimuth axis
   ; get the largest number of shots in a scan. It is the dimension of the zenith axis
