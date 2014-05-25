@@ -20,11 +20,11 @@ run_type='[point_cloud]'
 
 ;select the file using envi_pickfile
 ;script_file=envi_pickfile(title='Select the Script File to Process')
-if (script_file eq '') then begin
-  print,'No script file selected in envi_pickfile'
-  status=1
-  goto,go_back
-endif
+;; if (script_file eq '') then begin
+;;   print,'No script file selected in envi_pickfile'
+;;   status=1
+;;   goto,go_back
+;; endif
 
 ;test if file exists (very protective)
 if (~file_test(script_file)) then begin
@@ -194,13 +194,15 @@ endif
 
 ;test for zero n_case
 if (n_case le 0) then begin
-  ; Use this as a flag to select files manually
-  datafile = envi_pickfile(title='Select EVI files to filter')
-  ; Ancillary and Output filenames will be set to defaults, so ignore any that are
-  ; present in the batch file
-  present[4] = 0b
-  present[5] = 0b
-  n_case = n_elements(datafile)
+  ;; ; Use this as a flag to select files manually
+  ;; datafile = envi_pickfile(title='Select EVI files to filter')
+  ;; ; Ancillary and Output filenames will be set to defaults, so ignore any that are
+  ;; ; present in the batch file
+  ;; present[4] = 0b
+  ;; present[5] = 0b
+  ;; n_case = n_elements(datafile)
+   print, 'The number of cases in the script file is zero. Check the script!'
+   GOTO, out
 endif else begin
   ;n_case so set up the arrays
   datafile=strarr(n_case)
@@ -493,6 +495,10 @@ go_back:
 sav=0b
 return, status
 
+out:
+sav=0b
+return, status
+
 end
 
 ;-------------------------------
@@ -558,7 +564,8 @@ if (text_err ne 0) then begin
     strtrim('File Name ='+strtrim(point_file,2),2),$
     strtrim('Error Number ='+strtrim(text_err,2),2),$
     strtrim('Error Type ='+strtrim(string(!ERROR_STATE.MSG),2),2)]
-  result=dialog_message(info_text,/error,title='Error opening points file in evi_point_cloud')
+  ;;result=dialog_message(info_text,/error,title='Error opening points file in evi_point_cloud')
+  print, info_text
   print,'Error opening points file in point cloud!!'
   print,'File Name =',strtrim(point_file,2)
   print,'text_err=',text_err
@@ -601,7 +608,9 @@ if (text_err ne 0) then begin
     strtrim('File Name ='+strtrim(mdata_file,2),2),$
     strtrim('Error Number ='+strtrim(text_err,2),2),$
     strtrim('Error Type ='+strtrim(string(!ERROR_STATE.MSG),2),2)]
-  result=dialog_message(info_text,/error,title='Error opening metadata file in evi_point_cloud')
+  ;;result=dialog_message(info_text,/error,title='Error opening
+  ;;metadata file in evi_point_cloud')
+  print, info_text
   print,'Error opening metadata file in point cloud!!'
   print,'File Name =',strtrim(mdata_file,2)
   print,'text_err=',text_err
@@ -687,7 +696,9 @@ if (text_err ne 0) then begin
     strtrim('File Name ='+strtrim(temp_name,2),2),$
     strtrim('Error Number ='+strtrim(text_err,2),2),$
     strtrim('Error Type ='+strtrim(string(!ERROR_STATE.MSG),2),2)]
-  result=dialog_message(info_text,/error,title='Error opening temp file in evi_point_cloud')
+  ;;result=dialog_message(info_text,/error,title='Error opening temp
+  ;;file in evi_point_cloud')
+  print, info_text
   print,'Error opening temp file in point cloud!!'
   print,'File Name =',strtrim(temp_name,2)
   print,'text_err=',text_err
@@ -801,7 +812,9 @@ if (text_err ne 0) then begin
     strtrim('File Name ='+strtrim(pp_file,2),2),$
     strtrim('Error Number ='+strtrim(text_err,2),2),$
     strtrim('Error Type ='+strtrim(string(!ERROR_STATE.MSG),2),2)]
-  result=dialog_message(info_text,/error,title='Error opening pulse file in evi_point_cloud')
+  ;;result=dialog_message(info_text,/error,title='Error opening pulse
+  ;;file in evi_point_cloud'
+  print, info_text
   print,'Error opening pulse file in point cloud!!'
   print,'File Name =',strtrim(pp_file,2)
   print,'text_err=',text_err
@@ -1405,6 +1418,8 @@ end
 
 pro dwel_point_cloud_batch_doit_cmd, script_file
 compile_opt idl2
+envi, /restore_base_save_files
+envi_batch_init, /no_status_wind
 
 ;doit for the EVI derived ENVI file write utility procedure that
 
@@ -1508,14 +1523,18 @@ if(status ne 0) then begin
     '',$
     'If ENVI/IDL is running some more information',$
     'can be found in the IDL log window']
-     result=dialog_message(info_text,/error,title='Error in script_file')
+    ;; result=dialog_message(info_text,/error,title='Error in
+    ;; script_file')
+    print, info_text
   endif else begin
     Info_text=['EVI point_cloud script file has syntax',$
     'or other problems - check it!',$
     '',$
     'If ENVI/IDL is running some more information',$
     'can be found in the IDL log window']
-     result=dialog_message(info_text,/error,title='Error in script_file')
+    ;; result=dialog_message(info_text,/error,title='Error in
+    ;;script_file')
+    print, info_text
   endelse
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
@@ -1553,7 +1572,9 @@ if (strtrim(log_file,2) eq '') then begin
   '',$
   'If ENVI/IDL is running some more information',$
   'can be found in the IDL log window']
-   result=dialog_message(info_text,/error,title='Error in script_file')
+  ;; result=dialog_message(info_text,/error,title='Error in
+  ;; script_file')
+  print, info_text
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
 ;;clean up pointers
@@ -1594,7 +1615,9 @@ if (text_err ne 0) then begin
   '',$
   'If ENVI/IDL is running some more information',$
   'can be found in the IDL log window']
-   result=dialog_message(info_text,/error,title='Error in script_file')
+  ;;result=dialog_message(info_text,/error,title='Error in
+  ;;script_file')
+  print, info_text
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
 ;;clean up pointers
@@ -1622,19 +1645,20 @@ if (strtrim(strlowcase(script_type),2) ne strtrim(strlowcase(run_type),2)) then 
   Info_Text=[$
   'Warning: Script Type is '+strtrim(script_type),$
   'However: Run Type is '+strtrim(run_type),$
-  '',$
-  'Are you sure you wish to make this run (Yes/No)?']
-  response=dialog_message(Info_Text,$
-         /question,title='Incorrect Script File?')
-  if(response eq 'No') then begin
-;;get state pointer to close up the widgets
-;    widget_control,event.top,get_uvalue=pstate
-;;clean up pointers
-;    result=ptr_valid(pstate)
-;    if (result) then ptr_free, pstate
-;    widget_control,event.top,/destroy
-    goto, out
-  endif
+  'Incorrect Script File?']
+  print, Info_Text
+  GOTO, out
+;;   response=dialog_message(Info_Text,$
+;;          /question,title='Incorrect Script File?')
+;;   if(response eq 'No') then begin
+;; ;;get state pointer to close up the widgets
+;; ;    widget_control,event.top,get_uvalue=pstate
+;; ;;clean up pointers
+;; ;    result=ptr_valid(pstate)
+;; ;    if (result) then ptr_free, pstate
+;; ;    widget_control,event.top,/destroy
+;;     goto, out
+;;   endif
 endif
 
 ; Initialise a variable to keep track of disk space required
@@ -2033,7 +2057,9 @@ if (count gt 0) then begin
   for j=0,n_elements(info_text)-1 do begin
     print,info_text[j]
   endfor
-  result=dialog_message(info_text,/error,title='Errors in evi_point_cloud_batch input')
+  ;; result=dialog_message(info_text,/error,title='Errors in
+  ;;evi_point_cloud_batch input')
+  print, info_text
 ;;get state pointer to close up the widgets
 ;  widget_control,event.top,get_uvalue=pstate
 ;;clean up pointers
