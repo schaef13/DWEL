@@ -65,7 +65,7 @@ function CheckDWEL_EncoderCorr, DWEL_H5File, Wavelength, Correction
   ShotEndVec = [NegInd, shotend]
   ShotNumVec = ShotEndVec - ShotStartVec + 1
   
-  NoScanPerRotation = fix(TotalNoScans * 524288.0 / abs(encoders[1,0]-encoders[1,shotend]))
+  NoScanPerRotation = fix(TotalNoScans * 524288.0 / abs(encoders[1,shotstart]-encoders[1,shotend]))
   
   ; TotalNoScans is the dimension of the azimuth axis
   ; get the largest number of shots in a scan. It is the dimension of the zenith axis
@@ -125,6 +125,14 @@ function DataCube_EncoderCorr, DWEL_MetaInfo, DataCube_File, Wavelength
   
   openw, DataCubeFID, DataCube_File, /get_lun
   openw, AncillaryFID, AncillaryFile, /get_lun
+
+  ;;=========================================================
+  ;; temporary fix of Oz BFP scans
+  ;; ;; Oz BFP East
+  ;; DWEL_MetaInfo.NoShotsPerScan = 2709
+  ;; Oz BFP Aug2_C2
+  DWEL_MetaInfo.NoShotsPerScan = 5362
+  ;;=========================================================
     
   DataArray = intarr(DWEL_MetaInfo.NoShotsPerScan, DWEL_MetaInfo.NoSamplesPerShot)
   AncillaryArray = lonarr(DWEL_MetaInfo.NoShotsPerScan,9)
@@ -157,8 +165,22 @@ function DataCube_EncoderCorr, DWEL_MetaInfo, DataCube_File, Wavelength
       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     endif else begin ; if no blank pixel is needed
       BlankPixelLoc=-1
-    endelse
+   endelse
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+      ;;=========================================================
+      ;; temporary fix of Oz BFP scans
+      ;; ;; Oz BFP East
+      ;; IF i EQ 124 THEN BEGIN
+      ;;    shotind = shotind + DWEL_MetaInfo.ShotNum[i]
+      ;;    CONTINUE 
+      ;; ENDIF
+      ;; Oz BFP Aug2_C2
+      IF i EQ 569 THEN BEGIN
+         shotind = shotind + DWEL_MetaInfo.ShotNum[i]
+         CONTINUE 
+      ENDIF
+      ;;=========================================================
     
     for j = 0L, DWEL_MetaInfo.NoShotsPerScan-1, 1  do begin
       if (total((BlankPixelLoc eq j)) gt 0) or (shotind ge DWEL_MetaInfo.LastShotInd+1) gt 0 then begin
@@ -217,6 +239,12 @@ function DataCube_EncoderCorr, DWEL_MetaInfo, DataCube_File, Wavelength
   
   data_dims = size(DataArray)
   ancillary_dims = size(AncillaryArray)
+
+  ;;=========================================================
+  ;; temporary fix of Oz BFP scans
+  ;; Oz BFP East, Oz BFP Aug2_C2
+  DWEL_MetaInfo.TotalNoScans = DWEL_MetaInfo.TotalNoScans - 1
+  ;;=========================================================
   
   return, {samples:data_dims[1], lines:DWEL_MetaInfo.TotalNoScans, $
     databands:data_dims[2], ancillarybands:ancillary_dims[2], offset:0, $
@@ -277,6 +305,16 @@ pro DWEL2Cube_EncoderCorr_cmd, DWEL_H5File, oldancillaryfile_name, DWEL_Casing_M
 ;    filetype:'ENVI Data Cube', datatype:12, $
 ;    ancillarydatatype:14, interleave:1, sensortype:'DWEL', $
 ;    byteorder:0, wavelengthunit:'metres', range:120.0}
+
+  ;;=========================================================
+  ;; temporary fix of Oz BFP scans
+  ;; ;; Oz BFP East
+  ;; DWEL_MetaInfo.NoShotsPerScan = 2709
+  ;; DWEL_MetaInfo.TotalNoScans = DWEL_MetaInfo.TotalNoScans - 1
+  ;; Oz BFP Aug2_C2
+  DWEL_MetaInfo.NoShotsPerScan = 5362
+  DWEL_MetaInfo.TotalNoScans = DWEL_MetaInfo.TotalNoScans - 1
+  ;;=========================================================
   
   ;get path and evi_file name as separate strings
   last=strpos(DWEL_H5File,path_sep(),/reverse_search)
