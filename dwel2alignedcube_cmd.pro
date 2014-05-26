@@ -133,7 +133,11 @@ function AlignedDataCube, DWEL_MetaInfo, Flag_H5File, DataCube_File, AlignedMask
   for i = 0, aligned_nl-1, 1 do BEGIN
 ;; the flag of one scan line
      flag_line = intarr(DWEL_MetaInfo.NoShotsPerScan)
-     for j = 0, aligned_ns-1, 1  do begin
+     for j = 0, aligned_ns-1, 1  do BEGIN
+        ;; if this shot is an invalid one, find next valid one
+        WHILE (shotflag[shotind] EQ -1) AND (shotind LE DWEL_MetaInfo.LastShotInd) DO BEGIN
+           shotind = shotind + 1
+        ENDWHILE 
         if (AlignedMask[j, i] eq 0) or (shotind ge DWEL_MetaInfo.LastShotInd+1) then begin
            mask = 0
            AncillaryArray[j,*] = [fix(Trigger), fix(SunSensor), 0, 0, $
