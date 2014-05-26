@@ -128,10 +128,10 @@ function DataCube_EncoderCorr, DWEL_MetaInfo, DataCube_File, Wavelength
 
   ;;=========================================================
   ;; temporary fix of Oz BFP scans
-  ;; ;; Oz BFP East
-  ;; DWEL_MetaInfo.NoShotsPerScan = 2709
-  ;; Oz BFP Aug2_C2
-  DWEL_MetaInfo.NoShotsPerScan = 5362
+  ;; Oz BFP East
+  DWEL_MetaInfo.NoShotsPerScan = 2709
+  ;; ;; Oz BFP Aug2_C2
+  ;; DWEL_MetaInfo.NoShotsPerScan = 5362
   ;;=========================================================
     
   DataArray = intarr(DWEL_MetaInfo.NoShotsPerScan, DWEL_MetaInfo.NoSamplesPerShot)
@@ -170,16 +170,16 @@ function DataCube_EncoderCorr, DWEL_MetaInfo, DataCube_File, Wavelength
 
       ;;=========================================================
       ;; temporary fix of Oz BFP scans
-      ;; ;; Oz BFP East
-      ;; IF i EQ 124 THEN BEGIN
+      ;; Oz BFP East
+      IF i EQ 124 THEN BEGIN
+         shotind = shotind + DWEL_MetaInfo.ShotNum[i]
+         CONTINUE
+      ENDIF
+      ;; ;; Oz BFP Aug2_C2
+      ;; IF i EQ 569 THEN BEGIN
       ;;    shotind = shotind + DWEL_MetaInfo.ShotNum[i]
       ;;    CONTINUE 
       ;; ENDIF
-      ;; Oz BFP Aug2_C2
-      IF i EQ 569 THEN BEGIN
-         shotind = shotind + DWEL_MetaInfo.ShotNum[i]
-         CONTINUE 
-      ENDIF
       ;;=========================================================
     
     for j = 0L, DWEL_MetaInfo.NoShotsPerScan-1, 1  do begin
@@ -308,12 +308,12 @@ pro DWEL2Cube_EncoderCorr_cmd, DWEL_H5File, oldancillaryfile_name, DWEL_Casing_M
 
   ;;=========================================================
   ;; temporary fix of Oz BFP scans
-  ;; ;; Oz BFP East
-  ;; DWEL_MetaInfo.NoShotsPerScan = 2709
-  ;; DWEL_MetaInfo.TotalNoScans = DWEL_MetaInfo.TotalNoScans - 1
-  ;; Oz BFP Aug2_C2
-  DWEL_MetaInfo.NoShotsPerScan = 5362
+  ;; Oz BFP East
+  DWEL_MetaInfo.NoShotsPerScan = 2709
   DWEL_MetaInfo.TotalNoScans = DWEL_MetaInfo.TotalNoScans - 1
+  ;; ;; Oz BFP Aug2_C2
+  ;; DWEL_MetaInfo.NoShotsPerScan = 5362
+  ;; DWEL_MetaInfo.TotalNoScans = DWEL_MetaInfo.TotalNoScans - 1
   ;;=========================================================
   
   ;get path and evi_file name as separate strings

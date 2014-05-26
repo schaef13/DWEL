@@ -111,6 +111,11 @@ PRO dwel_hdf_flag_shots, DWEL_H5File, ancillaryfile_name, Filtered_Casing_Mask_F
      ENDFOR 
   ENDFOR 
 
+  ;; ;; Oz, Aug3, East
+  ;; flag[331220:334315] = -1
+  ;; Oz, Aug2, C2
+  flag[3030537:3036151] = -1
+
   ;; write flag to a new hdf5 file, name given by the last input
   ;; argument.
   ;; first find out whether the flag hdf5 file exists
