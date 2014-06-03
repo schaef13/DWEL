@@ -333,6 +333,9 @@ pro DWEL2AlignedCube_cmd, DWEL_H5File, Flag_H5File, AlignedMaskFile, DataCube_Fi
   last=strpos(DataCube_File,path_sep(),/reverse_search)
   out_base=strtrim(strmid(DataCube_File,last+1,strlen(DataCube_File)-last-1),2)
   DWEL_Scan_Info=[DWEL_Scan_Info,'Output Cube File = '+out_base]
+
+  DWEL_Adaptation=['Band "Waveform Mean" is actually "Waveform Max"', 'Band "Scan Encoder" is value corrected for nadir shift in HDF raw data']
+  DWEL_Adaptation=[DWEL_Adaptation, 'Wavelength='+strtrim(Wavelength_Label, 2)]
   
   ENVI_SETUP_HEAD, fname=DataCube_File, $
     ns=HeaderInfo.samples, nl=HeaderInfo.lines, nb=HeaderInfo.databands, $
@@ -341,6 +344,9 @@ pro DWEL2AlignedCube_cmd, DWEL_H5File, Flag_H5File, AlignedMaskFile, DataCube_Fi
     bnames=band_names, $
     wl=wl_out, /write, /open, r_fid=out_fid
   
+  envi_assign_header_value, fid=out_fid, $
+    keyword='DWEL_Adaptation', $
+    value=DWEL_Adaptation
   envi_assign_header_value, fid=out_fid, keyword='EVI_Scan_Info', $ ;keyword='DWEL_Scan_Info', $
       value=DWEL_Scan_Info
   envi_write_file_header, out_fid
@@ -354,8 +360,6 @@ pro DWEL2AlignedCube_cmd, DWEL_H5File, Flag_H5File, AlignedMaskFile, DataCube_Fi
     bnames=['Non Triggers','Sun Sensor','Scan Encoder','Rotary Encoder', $
     'Laser Power','Waveform Mean','Mask','Zenith','Azimuth']
   
-  DWEL_Adaptation=['Band "Waveform Mean" is actually "Waveform Max"', 'Band "Scan Encoder" is value corrected for nadir shift in HDF raw data']
-  DWEL_Adaptation=[DWEL_Adaptation, 'Wavelength='+strtrim(Wavelength_Label, 2)]
   envi_assign_header_value, fid=anc_fid, $
     keyword='DWEL_Adaptation', $
     value=DWEL_Adaptation

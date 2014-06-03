@@ -1,3 +1,8 @@
+;; baseline fix and saturation fix of NSF DWEL data
+;; Zhan Li, zhanli86@bu.edu
+;; Created in 2013 by Zhan Li
+;; Last modified: 20140603 by Zhan Li
+
 function dwel_header_parse, headerstr, tag_name
 
 end
@@ -25,7 +30,7 @@ function apply_sat_fix, basefixed_satwf, pulse_model, p_troughloc, p_scdpeakloc,
   return, 1
 end
 
-pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMeanWfFile
+pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile ;, AsciiCasingMeanWfFile, AsciiSkyMeanWfFile
   compile_opt idl2
   envi, /restore_base_save_files
   envi_batch_init, /no_status_window
@@ -50,7 +55,6 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
                 strtrim('Last Message: '+strtrim(out,2),2)]
      print, strtrim('Error in DWEL_Baseline_Fix_Cmd', 2)
      print, strtrim(info_text, 2)
-     ;result=dialog_message(info_text,/error,title='Error in DWEL_Baseline_Fix_Cmd')
      goto, cleanup
   endif
   
@@ -115,19 +119,6 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
     ]
     print, message_text
     GOTO, cleanup
-  
-  ;; get_anc:
-  ;;   outfile = dialog_pickfile(title='Select ancillary DWEL_file', $
-  ;;           file=ancillaryfile_name,path=f_path, /must_exist)
-  ;; ;check for error or cancel button hit
-  ;;   if (outfile eq '') then begin
-  ;;     result=dialog_message('Try again ? (No/Yes) ',/question,$
-  ;;     title='No file selected or operation cancelled !')
-  ;;     if(result eq 'No') then begin
-  ;;       goto, cleanup
-  ;;     endif else goto, get_anc
-  ;;   endif
-  ;;   anc_name=outfile
   endif
   
   envi_open_file, ancillaryfile_name, r_fid=ancillaryfile_fid, $
@@ -238,21 +229,37 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
     anc_data[*,*,j]=fix(ENVI_GET_DATA(fid=ancillaryfile_fid, dims=[-1L,0,ns-1,0,nl-1], pos=j), type=14)
   endfor
   
-  ; now temporarily get wavelength from the filename
-  ; later need to add a header information of laser wavelength to the hdr file
-  ; the wavelength will be extracted from the header information. 
-  if (strpos(evi_headers.f_base, '1064') ne -1) then begin
-    wavelength = 1064
-  endif
-  if (strpos(evi_headers.f_base, '1548') ne -1) then begin
-    wavelength = 1548
-  endif
   DWEL_Adaptation = ENVI_GET_HEADER_VALUE(ancillaryfile_fid, 'DWEL_Adaptation', undefined=undef)
   if undef then begin
     DWEL_Adaptation = ''
-  endif
-;  strpos()
-  
+    if (strpos(evi_headers.f_base, '1064') ne -1) then begin
+      wavelength = 1064
+    endif
+    if (strpos(evi_headers.f_base, '1548') ne -1) then begin
+      wavelength = 1548
+   ENDIF
+ ENDIF ELSE BEGIN
+    match = -1
+    info = DWEL_Adaptation
+    for i=0,n_elements(info)-1 do BEGIN
+       if (strmatch(info[i],'*Wavelength*', /fold_case)) then match=i
+    ENDFOR 
+    IF match GE 0 THEN BEGIN
+       text=strtrim(info[match],2)
+       print,'text=',text
+       k=strpos(text,'=')
+       print,'extract=',strtrim(strmid(text,k+1,4),2)
+       wavelength=float(strtrim(strmid(text,k+1,4),2))
+    ENDIF ELSE BEGIN
+       if (strpos(evi_headers.f_base, '1064') ne -1) then begin
+          wavelength = 1064
+       endif
+       if (strpos(evi_headers.f_base, '1548') ne -1) then begin
+          wavelength = 1548
+       ENDIF
+    ENDELSE 
+ ENDELSE
+
   envi_file_mng, id=ancillaryfile_fid,/remove
   
   ;compute the mask from the ancillary file
