@@ -79,7 +79,7 @@ function AlignedDataCube, DWEL_MetaInfo, Flag_H5File, DataCube_File, AlignedMask
   compile_opt idl2
 
   ;; some critical constant values
-  casing_zenith_span = 140.0
+  casing_zenith_span = 123.2455
 
 ; read the mask of aligned scanning image
   AlignedMask = read_tiff(AlignedMaskFile)
