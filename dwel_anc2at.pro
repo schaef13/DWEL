@@ -10,10 +10,7 @@ end
 
 ; Max_Zenith_Angle: in unit of degree
 ; output_resolution: in unit of mrad
-pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolution
-  
-  ;; debug
-  print, 'enter dwel_cube2at'
+pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolution
 
   compile_opt idl2
   envi, /restore_base_save_files
@@ -33,33 +30,22 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
   r2mr=1000.0
   Proj_name=['Hemispherical','Andrieu Normal','Andrieu Transpose']
   ;;;;;;;;;;;;;;;;;;;;;;;;
-
-  envi_open_file, DWEL_Cube_File,r_fid=fid,/no_interactive_query,/no_realize
-  if(fid eq -1) then begin
-    print, 'Processing stopped! Fail to open the input data cube file: ' + DWEL_Cube_File
+  
+  envi_open_file, DWEL_Anc_File,r_fid=anc_fid,/no_interactive_query,/no_realize
+  if (anc_fid eq -1) then begin
+    print,'Processing stopped! Error opening ancillary data file '+strtrim(DWEL_Anc_File,2)
     goto, cleanup
   endif
   
   ;get the input image dimensions and other info
-  envi_file_query, fid, ns=ns, nl=nl, nb=nb, $
-    byte_swap=order, data_type=type, interleave=ftype, $
-    bnames=band_name, dims=dims, file_type=f_type, $
-    xstart=xstart, ystart=ystart,wl=wl
+  envi_file_query, anc_fid, ns=Nshots, nl=Nscans, nb=nb_anc, $
+                   data_type=type, file_type=ftype, dims=dims
+
+  samples=Nshots
+  lines=Nscans
+  bands=nb_anc
   
-  result=envi_file_type(f_type)
-  
-  print,'input file type = ',result
-  
-  if (result ne 'ENVI Standard') then begin
-    print, 'Processing stopped! Input file not ENVI Standard!'
-    goto, cleanup
-  endif
-  
-  samples=ns
-  lines=nl
-  bands=nb
-  
-  band_pos=indgen(nb)
+  band_pos=indgen(bands)
   
   x_range=[dims[1],dims[2]]
   y_range=[dims[3],dims[4]]
@@ -87,16 +73,11 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
   14: dt_nam='64-bit Int'
   15: dt_nam='64-bit Long Int'
   endcase
-  
+    
   ;get path and image name as separate strings
-  last=strpos(DWEL_Cube_File,path_sep(),/reverse_search)
-  f_path=strmid(DWEL_Cube_File,0,last+1)
-  f_base=strtrim(strmid(DWEL_Cube_File,last+1,strlen(DWEL_Cube_File)-last-1),2)
-  
-  ;check for the ancillary data file
-  n_base=strlen(DWEL_Cube_File)
-  n_dot=strpos(DWEL_Cube_File,'.',/reverse_search)
-  
+  last=strpos(DWEL_Anc_File,path_sep(),/reverse_search)
+  f_path=strmid(DWEL_Anc_File,0,last+1)
+  f_base=strtrim(strmid(DWEL_Anc_File,last+1,strlen(DWEL_Anc_File)-last-1),2)
   ;now get the EVI headers that are present
   ;set up a base structure for the EVI headers
   evi_headers={ $
@@ -104,7 +85,7 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
        }
   
   ;find all of the EVI headers in the hdr file as defined by FID
-  status=get_headers(fid,evi_headers)
+  status=get_headers(anc_fid,evi_headers)
   
   if (not status) then begin
     print, 'Processing stopped! Bad FID in EVI get_headers on input file!'
@@ -145,88 +126,14 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
     endelse
   endelse
   
-  ;Get date and time of the acquisition
-  evi_date_time=''
-   match = -1
-   for i=0,n_elements(evi_headers.evi_scan_info)-1 do begin
-     if (strmatch(evi_headers.evi_scan_info[i],'*Data End Time*')) then match=i
-   endfor
-   if (match ge 0) then begin
-     sf = strsplit(evi_headers.evi_scan_info[match],'=',/extract)
-     evi_date_time = strtrim(strcompress(sf[1]),2)
-   endif else begin
-     evi_date_time = ''
-   endelse
-  
-  ;Get the site description
-  evi_description_record=''
-   match = -1
-   for i=0,n_elements(evi_headers.evi_scan_info)-1 do begin
-     if (strmatch(evi_headers.evi_scan_info[i],'*Scan Description*')) then match=i
-   endfor
-   if (match ge 0) then begin
-     sf = strsplit(evi_headers.evi_scan_info[match],'=',/extract)
-     if (n_elements(sf) gt 1) then begin
-       evi_description_record = strtrim(sf[1],2)
-     endif else begin
-       evi_description_record = ''
-     endelse
-   endif else begin
-     evi_description_record = ''
-   endelse
-  
-  print,''
-  print,'EVI run Date & Time='+strtrim(evi_date_time,2)
-  print,'EVI run Description='+strtrim(evi_description_record,2)
-  
-  if(not file_test(DWEL_Anc_File)) then begin
-    print,'Processing stopped! Ancillary file not present or not correct!'
-    goto, cleanup
-  endif
-  
-  text_err=0
-  envi_open_file, DWEL_Anc_File,r_fid=anc_fid,/no_interactive_query,/no_realize
-  if (anc_fid eq -1) then begin
-    print,'Processing stopped! Error opening ancillary data file '+strtrim(DWEL_Anc_File,2)
-    goto, cleanup
-  endif
-  
-  ;get the input image dimensions and other info
-  envi_file_query, anc_fid, ns=Nshots, nl=Nscans, nb=nb_anc
-  
-  if ((Nshots ne Samples) or (Nscans ne lines)) then begin
-    print,'Processing stopped! Dimension of ancillary File '+strtrim(DWEL_Anc_File,2)+' does NOT Conform with input !'
-    goto, cleanup
-  endif
-  
-  ;now get the EVI headers that are present for the ancillary file
-  ;set up a base structure for the EVI headers
-  evi_anc_headers={ $
-       f_base:DWEL_Anc_File $
-       }
-  
-  ;find all of the EVI headers in the hdr file as defined by FID
-  status=get_headers(anc_fid,evi_anc_headers)
-  
-  if (not status) then begin
-    print,'Processing stopped! Bad FID in get_headers for Ancillary File'
-    goto, cleanup
-  endif
-  
-  if (evi_anc_headers.headers_present le 0s or not evi_anc_headers.run_present) then begin
-    print,'Processing stopped! Ancillary file NOT a valid EVI Cube file'
-    goto, cleanup
-  endif
-  
   print,'Input information from input files complete'
-  
-  ;set output band number
-  nb_out=n_elements(where(band_pos gt -1))
   
   ;get the mask
   Mask_all=bytarr(Nshots,Nscans)+1b
   dims=[-1,0,Nshots-1,0,Nscans-1]
   Mask_all=envi_get_data(fid=anc_fid,dims=dims,pos=6)
+  ;; get the waveform maximum image
+  wfmax = envi_get_data(fid=anc_fid,dims=dims,pos=5)
   
   ;get encoder positions!
   ShotZen=fltarr(Nshots,Nscans)
@@ -286,27 +193,7 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
   
   if (~srate_set) then print,'Sampling rate NOT read from headers!!!'
   print,'sampling rate=',srate
-  
-;  ;Get the FWHM
-;  buf=''
-;   match = -1
-;   for i=0,n_elements(evi_headers.EVI_base_fix_info)-1 do begin
-;     if (strmatch(evi_headers.EVI_base_fix_info[i],'*casing_fwhm(nsec)*')) then match=i
-;   endfor
-;   if (match ge 0) then begin
-;     sf = strsplit(evi_headers.EVI_base_fix_info[match],'=',/extract)
-;     if (n_elements(sf) gt 1) then begin
-;       buf = strtrim(strcompress(sf[1]),2)
-;     endif else begin
-;       buf = ''
-;     endelse
-;   endif else begin
-;     buf = ''
-;   endelse
-;  casing_fwhm=float(buf)*srate
-;  
-;  print,'casing fwhm=',casing_fwhm
-  
+    
   ;Get the beam divergence
   buf=''
    match = -1
@@ -380,6 +267,7 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
   h21=1.1*(h/2.0)
   h22=1.1*((!radeg*scan_step)/r2mr)/2.0
   h2=max([h21,h22])
+  print, 'projection step size: ', h2
   
   counter=0L
   Tot_Count=0L
@@ -498,78 +386,22 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
   
   ;all ready to go ... so get output file name[s]
   output_envi:
-  
-  ;Open output file
-  text_err=0
-  openw, ofile, DWEL_AT_File,/get_lun,error=text_err
-  if (text_err ne 0) then begin
-    printf,tfile,'Error opening output file '+strtrim(DWEL_AT_File,2)
-    ptr_free,p_list
-    goto, cleanup
-  endif
-  
+    
   print,'pre-processing done - projecting the image!'
-  
-  ;do the processing in BSQ structure
-  ft_out=1
-  ft_str=['BSQ','BIL','BIP']
-  
-  ;Set up the tiling
-  tile_id=envi_init_tile(fid,band_pos,num_tiles=num_tiles,$
-    interleave=ft_out,xs=x_range[0],xe=x_range[1],ys=y_range[0],ye=y_range[1])
-  
-  ;check that tiling and dimensions match
-  if (num_tiles ne Nscans) then begin
-    print,'Number of Tiles is unexpected'
-    print,'Output File Type is '+strtrim(ft_str[ft_out],2)
-    print,'Number of tiles is '+strtrim(string(num_tiles,format='(i5)'),2)
-    print,'Expected number of tiles = '+strtrim(string(nb_out,format='(i5)'),2)
-    print,'Try increasing the RAM for ENVI in the Preference!'
-    envi_tile_done, tile_id
-    free_lun, ofile,/force
-    ptr_free, p_list
-    goto, cleanup
-  endif
-  
-  ;set the output data type
-  if (type lt 4 or type gt 9) then begin
-    out_type=2
-  endif else begin
-    out_type=4
-  endelse
-  
+    
   ;set up the arrays for data and output
-  data=make_array(Nshots,nb_out,/double)
-;  accum=make_array(ns_out,nl_out,/double)
-;  accum_abs=make_array(ns_out,nl_out,/double)
-  temp=make_array(Nshots,nb_out,/double)
+  data=make_array(Nshots,1,/double)
+  temp=make_array(Nshots,1,/double)
   maxwf = make_array(ns_out, nl_out, /double)
-  meanwf = make_array(ns_out, nl_out, /double)
-  ;accum_r=make_array(ns_out,nl_out,/double)
-  ;accum_r2=make_array(ns_out,nl_out,/double)
-  
-  ;set up the range scaling
-  
-  sc_r=dblarr(nb_out)
-  sc_r2=dblarr(nb_out)
-  
-  pos_nz=where(wl ge 0.0,n_pos)
-  step=wl[1]-wl[0]
-  
-  if (n_pos gt 0) then begin
-    sc_r[pos_nz]=double(step)*(dindgen(n_pos)+1.0d)
-    sc_r2[pos_nz]=(double(step)*(dindgen(n_pos)+1.0d))^2
-  endif
-  pos_nz=0b
+
   num_avg=make_array(ns_out,nl_out,/long)
   
   ;do the processing over the output tiles
-  ;BIL Tile
   
   for k=0L, nl_out-1 do begin
     current=-1
     ;count=0L
-    temp=make_array(ns_out,nb_out,/double)
+    temp=make_array(ns_out,1,/double)
   ;help,*(p_list[k])
     pos_nz=where(num_val[*,k] gt 0,n_pos)
     if (n_pos gt 0) then begin
@@ -580,7 +412,7 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
         lin=pos_ind[1,point]
         if (lin ne current) then begin
           data=0s
-          data=double(envi_get_tile(tile_id,lin))
+          data = wfmax[*, lin]
           ;count=count+1L
           current=lin
         endif
@@ -595,24 +427,11 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
     pos_ind=0b
     pos_nz=0b
     data=0b
-    writeu,ofile,fix(round(scaler*temp))
-  
-  ;now get the statistics of the image for the extra info file
-;    accum[*,k]=total(temp,2,/double)/float(casing_fwhm)
-;    accum_abs[*,k]=total(abs(temp),2,/double)/float(nb_out)
-;    accum_r[*,k]=transpose(temp)##sc_r
-;    accum_r2[*,k]=transpose(temp)##sc_r2
     
-    maxwf[*,k] = max(temp, dimension = 2)
-    meanwf[*,k] = mean(temp, dimension = 2)
+    maxwf[*,k] = temp
     temp=0b
   endfor
   
-  envi_tile_done, tile_id
-  free_lun,ofile,/force
-  ptr_free, p_list
-  envi_file_mng,id=fid,/remove
-  fid=0b
   data=0b
   temp=0b
   
@@ -622,115 +441,10 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
     print,'total counted in second loop=',total(num_avg)
   endif
   
-;  ;compute the stars
-;  star_r=make_array(ns_out,nl_out,/double)
-;  star_r2=make_array(ns_out,nl_out,/double)
-;  pos=where(abs(accum_abs) gt 1.0e-5,count)
-;  if (count gt 0) then begin
-;    star_r[pos]=abs(accum_r[pos])/abs(accum_abs[pos])
-;    star_r2[pos]=sqrt(abs(accum_r2[pos])/abs(accum_abs[pos]))
-;  endif
-;  accum_abs=0b
   pos=0b
-  
-;  accum_r=accum_r/total(sc_r)
-;  accum_r2=accum_r2/total(sc_r2)
-  
-  sc_r=0b
-  sc_r2=0b
-  
-;  image_statistics,accum,mask=mask,minimum=amin,maximum=amax,mean=amean,stddev=asdev
-;  scaler=4095.0/(amax-amin)
-;  accum=fix(round(scaler*(accum-amin)))
-;  
-;  print,'accum mean=',amean
-  
-;  EVI_projection_info=[EVI_projection_info, $
-;  'Stats_Format=(Min,Mean,Max,Stddev)', $
-;  'accum_Stats=['+strtrim(string(amin),2)+',' $
-;  +strtrim(string(amean),2)+',' $
-;  +strtrim(string(amax),2)+',' $
-;  +strtrim(string(asdev),2)+']' $
-;  ]
-;  
-;  image_statistics,accum_r,mask=mask,minimum=amin,maximum=amax,mean=amean,stddev=asdev
-;  scaler=4095.0/(amax-amin)
-;  accum_r=fix(round(scaler*(accum_r-amin)))
-;  
-;  EVI_projection_info=[EVI_projection_info, $
-;  'accum_r_Stats=['+strtrim(string(amin),2)+',' $
-;  +strtrim(string(amean),2)+',' $
-;  +strtrim(string(amax),2)+',' $
-;  +strtrim(string(asdev),2)+']' $
-;  ]
-;  
-;  image_statistics,accum_r2,mask=mask,minimum=amin,maximum=amax,mean=amean,stddev=asdev
-;  scaler=4095.0/(amax-amin)
-;  accum_r2=fix(round(scaler*(accum_r2-amin)))
-;  
-;  EVI_projection_info=[EVI_projection_info, $
-;  'accum_r2_Stats=['+strtrim(string(amin),2)+',' $
-;  +strtrim(string(amean),2)+',' $
-;  +strtrim(string(amax),2)+',' $
-;  +strtrim(string(asdev),2)+']' $
-;  ]
-;  
-;  image_statistics,star_r,mask=mask,minimum=amin,maximum=amax,mean=amean,stddev=asdev
-;  scaler=4095.0/(amax-amin)
-;  star_r=fix(round(scaler*(star_r-amin)))
-;  
-;  EVI_projection_info=[EVI_projection_info, $
-;  'star_r_Stats=['+strtrim(string(amin),2)+',' $
-;  +strtrim(string(amean),2)+',' $
-;  +strtrim(string(amax),2)+',' $
-;  +strtrim(string(asdev),2)+']' $
-;  ]
-;  
-;  image_statistics,star_r2,mask=mask,minimum=amin,maximum=amax,mean=amean,stddev=asdev
-;  scaler=4095.0/(amax-amin)
-;  star_r2=fix(round(scaler*(star_r2-amin)))
-;  
-;  EVI_projection_info=[EVI_projection_info, $
-;  'star_r2_Stats=['+strtrim(string(amin),2)+',' $
-;  +strtrim(string(amean),2)+',' $
-;  +strtrim(string(amax),2)+',' $
-;  +strtrim(string(asdev),2)+']' $
-;  ]
-  
-  ;set up the ENVI header for the output image and open in the
-  ;available files list
-  
-  descrip=pname+' Projected BIL version of '+strtrim(DWEL_Cube_File,2)
-  
-  ;get output_file name without path
-  last=strpos(DWEL_AT_File,path_sep(),/reverse_search)
-  out_base=strtrim(strmid(DWEL_AT_File,last+1,strlen(DWEL_AT_File)-last-1),2)
-  
-  EVI_projection_info=[EVI_projection_info, $
-  'Input_File='+strtrim(f_base,2),$
-  'Output_projected_file='+strtrim(out_base,2)]
-  
-  envi_setup_head,fname=DWEL_AT_File,ns=ns_out,nl=nl_out,nb=nb_out,$
-  xstart=0,ystart=0,$
-  data_type=2, interleave=1, $
-  descrip=descrip, wl=wl[band_pos], bnames=band_name[band_pos]+'_'+ptype+'_Projected',/write
-  
-  envi_open_file,DWEL_AT_File,r_fid=out_fid,/no_interactive_query,/no_realize
-  
-  ;write out the previous header records
-  status=put_headers(out_fid,evi_headers)
-  
-  envi_assign_header_value, fid=out_fid, keyword='EVI_projection_info', $
-      value=EVI_projection_info
-  envi_assign_header_value, fid=out_fid, keyword='EVI_Andrieu_zenith', $
-      value=EVI_Andrieu_zenith
-  envi_assign_header_value, fid=out_fid, keyword='EVI_Andrieu_azimuth', $
-      value=EVI_Andrieu_azimuth
-  
-  envi_write_file_header, out_fid
-  envi_file_mng,id=out_fid,/remove
-  
+    
   ;now write out the extra information image
+  ;; set up the file name of the extra information image
   n_base=strlen(DWEL_AT_File)
   n_dot=strpos(DWEL_AT_File,'.',/reverse_search)
   if((n_dot le 0) or (n_base-n_dot ne 4)) then begin
@@ -750,19 +464,14 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
   writeu,ofile,fix(theta)
   writeu,ofile,fix(phi)
   writeu,ofile,fix(mask)
-  writeu,ofile,fix(round(meanwf))
+;;  writeu,ofile,fix(round(meanwf))
   writeu,ofile,fix(round(maxwf))
-;  writeu,ofile,fix(round(accum))
-;  writeu,ofile,fix(round(accum_r))
-;  writeu,ofile,fix(round(accum_r2))
-;  writeu,ofile,fix(round(star_r))
-;  writeu,ofile,fix(round(star_r2))
   free_lun, ofile,/force
   
-  descrip='Numbers and info for '+strtrim(DWEL_Cube_File,2)
+  descrip='Numbers and info for '+strtrim(DWEL_Anc_File,2)
 ;  bnames=['Number Averaged','Zenith','Azimuth','Mask','Mean','Mean_r','Mean_r2','Star_r','Star_RMS']
-  bnames=['Number Averaged','Zenith','Azimuth','Mask','Mean','Max']
-  envi_setup_head,fname=outextra,ns=ns_out,nl=nl_out,nb=6,$
+  bnames=['Number Averaged','Zenith','Azimuth','Mask','Max']
+  envi_setup_head,fname=outextra,ns=ns_out,nl=nl_out,nb=5,$
   xstart=0,ystart=0,$
   data_type=2, interleave=0, bnames=bnames, $
   descrip=descrip, /write
@@ -796,9 +505,6 @@ pro dwel_cube2at, DWEL_Cube_File, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle,
   accum_r2=0b
   star_r=0b
   star_r2=0b
-  
-  envi_tile_done, tile_id
-  free_lun, ofile,/force
   
   result=ptr_valid(p_stat)
   if (result) then begin
