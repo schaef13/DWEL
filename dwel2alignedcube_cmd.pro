@@ -29,6 +29,7 @@ function AlignedCheckDWEL, DWEL_H5File, Wavelength
   ;; find the average azimuth interval
   az_diff = encoders[rotateenc_ind, shotstart:shotend-1] - encoders[rotateenc_ind, shotstart+1:shotend]
   mean_az_diff = mean(abs(az_diff))
+  az_range = abs(encoders[rotateenc_ind, shotstart] - encoders[rotateenc_ind,shotend])
   
   ;; ; Find out the number of shots in each scan. 
   ;; ; The largest number will be used as the dimension (number of pixels) along the elevation or zenith axis.
@@ -72,7 +73,7 @@ function AlignedCheckDWEL, DWEL_H5File, Wavelength
   return, {DWELFileName:DWEL_H5File, $
     TotalNoScans:-1, NoShotsPerScan:-1, NoSamplesPerShot:NoSamplesPerShot, $
     FirstShotInd:shotstart, LastShotInd:shotend, $
-    NoScanPerRotation:-1, AzInterval:mean_az_diff}
+    NoScanPerRotation:-1, AzInterval:mean_az_diff, AzRange:az_range}
 end
 
 function AlignedDataCube, DWEL_MetaInfo, Flag_H5File, DataCube_File, AlignedMaskFile, Wavelength
@@ -87,10 +88,9 @@ function AlignedDataCube, DWEL_MetaInfo, Flag_H5File, DataCube_File, AlignedMask
   aligned_ns = tmp[0]
   aligned_nl = tmp[1]
 ; update the meta information in the structural variable DWEL_MetaInfo
-  DWEL_MetaInfo.NoScanPerRotation = fix(DWEL_MetaInfo.NoScanPerRotation * aligned_nl / DWEL_MetaInfo.TotalNoScans)
   DWEL_MetaInfo.TotalNoScans = aligned_nl
   DWEL_MetaInfo.NoShotsPerScan = aligned_ns
-  DWEL_MetaInfo.NoScanPerRotation = fix(DWEL_MetaInfo.TotalNoScans * 524288.0 / DWEL_MetaInfo.AzInterval)
+  DWEL_MetaInfo.NoScanPerRotation = fix(DWEL_MetaInfo.TotalNoScans * 524288.0 / float(DWEL_MetaInfo.AzRange))
 
   AncillaryFile = strmid(DataCube_File,0,strpos(DataCube_File, '.', /reverse_search))+'_ancillary.img'
 
@@ -265,12 +265,13 @@ function AlignedDataCube, DWEL_MetaInfo, Flag_H5File, DataCube_File, AlignedMask
   
   data_dims = size(DataArray)
   ancillary_dims = size(AncillaryArray)
-  
+
   return, {samples:data_dims[1], lines:aligned_nl, $
     databands:data_dims[2], ancillarybands:ancillary_dims[2], offset:0, $
     filetype:'ENVI Data Cube', datatype:data_dims[3], $
     ancillarydatatype:ancillary_dims[3], interleave:1, sensortype:'DWEL', $
-    byteorder:0, wavelengthunit:'metres', range:120.0}
+    byteorder:0, wavelengthunit:'metres', range:120.0, $
+    TotalNoScans:DWEL_MetaInfo.TotalNoScans, NoShotsPerScan:DWEL_MetaInfo.NoShotsPerScan, NoScanPerRotation:DWEL_MetaInfo.NoScanPerRotation}
   
 end
 
@@ -286,6 +287,10 @@ pro DWEL2AlignedCube_cmd, DWEL_H5File, Flag_H5File, AlignedMaskFile, DataCube_Fi
 
   DWEL_MetaInfo = AlignedCheckDWEL(DWEL_H5File, Wavelength)
   HeaderInfo = AlignedDataCube(DWEL_MetaInfo, Flag_H5File, DataCube_File, AlignedMaskFile, Wavelength)
+  
+  DWEL_MetaInfo.TotalNoScans = HeaderInfo.TotalNoScans
+  DWEL_MetaInfo.NoShotsPerScan = HeaderInfo.NoShotsPerScan
+  DWEL_MetaInfo.NoScanPerRotation = HeaderInfo.NoScanPerRotation
   
   ;get path and evi_file name as separate strings
   last=strpos(DWEL_H5File,path_sep(),/reverse_search)
