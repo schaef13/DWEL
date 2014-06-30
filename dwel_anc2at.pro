@@ -505,17 +505,20 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolutio
   accum_r2=0b
   star_r=0b
   star_r2=0b
+
+  IF p_stat NE !NULL THEN BEGIN 
+     result=ptr_valid(p_stat)
+     if (result) then begin
+        ptr_free,p_stat
+     ENDIF
+  ENDIF 
   
-  result=ptr_valid(p_stat)
-  if (result) then begin
-    ptr_free,p_stat
-  endif
-  
-  result=ptr_valid(p_list[0])
-  if (result) then begin
-    ptr_free,p_list
-  endif
-  
+  IF p_list NE !NULL THEN BEGIN 
+     result=ptr_valid(p_list[0])
+     if (result) then begin
+        ptr_free,p_list
+     endif
+  ENDIF 
   p_list=0b
   
   print,'Completed writing projected image - now for summary data'
