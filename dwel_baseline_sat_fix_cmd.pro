@@ -30,7 +30,12 @@ function apply_sat_fix, basefixed_satwf, pulse_model, p_troughloc, p_scdpeakloc,
   return, 1
 end
 
-pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range ;, AsciiCasingMeanWfFile, AsciiSkyMeanWfFile
+pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
+;; DWELCubeFile: the full file name of the DWEL cube file
+;; Casing_Range: [min_zen_angle, max_zen_angle], the zenith angle
+;; range to extract casing returns and get Tzero and electronic
+;;background noise level. 
+
   compile_opt idl2
   envi, /restore_base_save_files
   envi_batch_init, /no_status_window
