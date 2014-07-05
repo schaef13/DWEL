@@ -28,11 +28,23 @@ pro FilterRangeMask, oldRangeMask, ancfile, newRangeMask
   maskopenclose = morph_close(maskopen, [1,1,1])
   
   envi_open_file, ancfile, r_fid=anc_fid, /no_realize
+  if (anc_fid eq -1) then begin
+      print,strtrim('Error opening input ancillary file',2)
+      print,'Input File: '+strtrim(ancfile,2)
+      return
+  endif
+
   basicmask = byte(envi_get_data(dims=dims, fid=anc_fid, pos=6))
   
   newmask = byte(maskopenclose) * basicmask
   
   openw, out_fid, newRangeMask, /get_lun
+  if (out_fid eq -1) then begin
+      print,strtrim('Error making output mask file',2)
+      print,'Output File: '+strtrim(newRangeMask,2)
+      return
+  endif
+
   writeu, out_fid, (newmask)
   
   ; set up header for output filtered image file
