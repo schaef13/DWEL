@@ -1,3 +1,8 @@
+;; baseline fix and saturation fix of NSF DWEL data
+;; Zhan Li, zhanli86@bu.edu
+;; Created in 2013 by Zhan Li
+;; Last modified: 20140603 by Zhan Li
+
 function dwel_header_parse, headerstr, tag_name
 
 end
@@ -25,7 +30,12 @@ function apply_sat_fix, basefixed_satwf, pulse_model, p_troughloc, p_scdpeakloc,
   return, 1
 end
 
-pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMeanWfFile
+pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
+;; DWELCubeFile: the full file name of the DWEL cube file
+;; Casing_Range: [min_zen_angle, max_zen_angle], the zenith angle
+;; range to extract casing returns and get Tzero and electronic
+;;background noise level. 
+
   compile_opt idl2
   envi, /restore_base_save_files
   envi_batch_init, /no_status_window
@@ -36,6 +46,14 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
   fname=''
   o_name=''
   debug=1b
+
+  ;; distance from casing (edge of casing) to the true Tzero position
+  casing2Tzero = 0.2 ; unit: meters
+  ;; the FWHM of outgoing pulse, ns
+  outgoing_fwhm = 5.1
+  ;; the full width of outgoing pulse where intensity is below 0.01 of
+  ;;maximum
+  pulse_width_range = 5.1 * sqrt(alog(0.01)/alog(0.5))  
   
   ;First setup protective aunty-Catch to watch out for errors
   error_status=0
@@ -50,7 +68,6 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
                 strtrim('Last Message: '+strtrim(out,2),2)]
      print, strtrim('Error in DWEL_Baseline_Fix_Cmd', 2)
      print, strtrim(info_text, 2)
-     ;result=dialog_message(info_text,/error,title='Error in DWEL_Baseline_Fix_Cmd')
      goto, cleanup
   endif
   
@@ -115,19 +132,6 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
     ]
     print, message_text
     GOTO, cleanup
-  
-  ;; get_anc:
-  ;;   outfile = dialog_pickfile(title='Select ancillary DWEL_file', $
-  ;;           file=ancillaryfile_name,path=f_path, /must_exist)
-  ;; ;check for error or cancel button hit
-  ;;   if (outfile eq '') then begin
-  ;;     result=dialog_message('Try again ? (No/Yes) ',/question,$
-  ;;     title='No file selected or operation cancelled !')
-  ;;     if(result eq 'No') then begin
-  ;;       goto, cleanup
-  ;;     endif else goto, get_anc
-  ;;   endif
-  ;;   anc_name=outfile
   endif
   
   envi_open_file, ancillaryfile_name, r_fid=ancillaryfile_fid, $
@@ -238,21 +242,37 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
     anc_data[*,*,j]=fix(ENVI_GET_DATA(fid=ancillaryfile_fid, dims=[-1L,0,ns-1,0,nl-1], pos=j), type=14)
   endfor
   
-  ; now temporarily get wavelength from the filename
-  ; later need to add a header information of laser wavelength to the hdr file
-  ; the wavelength will be extracted from the header information. 
-  if (strpos(evi_headers.f_base, '1064') ne -1) then begin
-    wavelength = 1064
-  endif
-  if (strpos(evi_headers.f_base, '1548') ne -1) then begin
-    wavelength = 1548
-  endif
   DWEL_Adaptation = ENVI_GET_HEADER_VALUE(ancillaryfile_fid, 'DWEL_Adaptation', undefined=undef)
   if undef then begin
     DWEL_Adaptation = ''
-  endif
-;  strpos()
-  
+    if (strpos(evi_headers.f_base, '1064') ne -1) then begin
+      wavelength = 1064
+    endif
+    if (strpos(evi_headers.f_base, '1548') ne -1) then begin
+      wavelength = 1548
+   ENDIF
+ ENDIF ELSE BEGIN
+    match = -1
+    info = DWEL_Adaptation
+    for i=0,n_elements(info)-1 do BEGIN
+       if (strmatch(info[i],'*Wavelength*', /fold_case)) then match=i
+    ENDFOR 
+    IF match GE 0 THEN BEGIN
+       text=strtrim(info[match],2)
+       print,'text=',text
+       k=strpos(text,'=')
+       print,'extract=',strtrim(strmid(text,k+1,4),2)
+       wavelength=float(strtrim(strmid(text,k+1,4),2))
+    ENDIF ELSE BEGIN
+       if (strpos(evi_headers.f_base, '1064') ne -1) then begin
+          wavelength = 1064
+       endif
+       if (strpos(evi_headers.f_base, '1548') ne -1) then begin
+          wavelength = 1548
+       ENDIF
+    ENDELSE 
+ ENDELSE
+
   envi_file_mng, id=ancillaryfile_fid,/remove
   
   ;compute the mask from the ancillary file
@@ -316,59 +336,73 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
   ;============================================
   
   out_name=o_name
+    
+  ;; ; read the mean waveform of marked casing area from an ascii file
+  ;; ; get the initial T0 from this mean waveform 
+  ;; CasingMeanWf = Get_AsciiWf(AsciiCasingMeanWfFile)
+  ;; p_time = CasingMeanWf.wf_x
+  ;; pulse = CasingMeanWf.wf_y
   
-;  ;see if the output file exists
-;  if(file_test(out_name)) then begin
-;    result=dialog_message('OK to overwrite '+strtrim(out_name,2)+' ? (Yes/No) ', $
-;    /question,/default_no, $
-;    title='Output Image File Exists')
-;    if(result eq 'Yes') then begin
-;      fids=envi_get_file_ids()
-;      if(fids[0] eq -1) then begin
-;        file_delete, out_name
-;      endif else begin
-;        for i=0,n_elements(fids)-1 do begin
-;          envi_file_query,fids[i],fname=tname
-;          if (strtrim(strlowcase(out_name),2) eq $
-;              strtrim(strlowcase(tname),2)) then begin
-;              envi_file_mng,id=fids[i],/remove
-;          endif
-;        endfor
-;        file_delete, out_name
-;      endelse
-;    endif else begin
-;      out_name=''
-;      o_name=''
-;      print,strtrim('Output Image File exist and NOT allowed to overwrite it! Please backup the existing file and move it to another place!',2)
-;      goto, cleanup
-;    endelse
-;  endif
+  ;; ; get the mean waveform of marked sky area from an ascii file
+  ;; ; get the background noise (baseline) from this mean waveform
+  ;; SkyMeanWf = Get_AsciiWf(AsciiSkyMeanWfFile)
+  ;; baseline = SkyMeanWf.wf_y
   
-  ; read the mean waveform of marked casing area from an ascii file
-  ; get the initial T0 from this mean waveform 
-  CasingMeanWf = Get_AsciiWf(AsciiCasingMeanWfFile)
-  p_time = CasingMeanWf.wf_x
-  pulse = CasingMeanWf.wf_y
-  
-  ; get the mean waveform of marked sky area from an ascii file
-  ; get the background noise (baseline) from this mean waveform
-  SkyMeanWf = Get_AsciiWf(AsciiSkyMeanWfFile)
-  baseline = SkyMeanWf.wf_y
+  ;; get mean pulse and baseline from the given casing area designated
+  ;;by the zenith angles. 
+  sum = dblarr(nb)
+  sum2 = dblarr(nb)
+  n = 0
+  for i=0L,nl-1L do BEGIN     
+    index=where((mask_all[*,i] ne 0) and (zeniths[*,i] ge Casing_Range[0] and zeniths[*,i] LE Casing_Range[1]), count)
+    if (count gt 0L) then begin
+      data = envi_get_slice(fid=infile_fid, line=i, /bil)
+      d = double(data[index,*])
+      data=0b
+      n = n + count
+      sum = sum + total(d, 1, /double)
+      sum2 = sum2 + total(d^2, 1,/double) ; sum of square waveform over the casing area in this scan line, still a vector
+    endif else BEGIN
+       
+    endelse
+    index=0b
+    data=0b
+    d=0b
+ ENDFOR
+  ; initial time from current data cube before baseline fix
+  time = wl 
+  p_time = time
+  pulse = sum / double(n)
+  sig = sqrt((sum2 / double(n) - pulse^2)*double(n)/double(n-1))
+  tmpmax = max(pulse, tmppos)
+  print, 'Initial Tzero before baseline fix = ', time[tmppos], ' ns'  
+  baseline = dblarr(nb)
+  tmpind = where(time LT time[tmppos] - pulse_width_range/2.0, count)
+  IF count GT 0 THEN BEGIN
+     baseline[tmpind] = pulse[tmpind]
+  ENDIF 
+  tmpind = where(time GT time[tmppos] + 5*pulse_width_range, count)
+  IF count GT 0 THEN BEGIN
+     baseline[where(time GE time[tmppos] - pulse_width_range/2.0)] = total(pulse[tmpind])/double(count)
+  ENDIF ELSE BEGIN
+     baseline[where(time GE time[tmppos] - pulse_width_range/2.0)] = pulse[nb-1]
+  ENDELSE 
   
   pulse = pulse - baseline
   
-  ; initial time from current data cube before baseline fix
-  time = wl 
-   
-  delta= -0.2/c2 ; 0.2 meter is about the distance between the rotating mirror and the base. This is an old measurement and needs be updated. 
-  print,'delta=',delta, ' ns'
-  print,''
-  
-  ;DWEL_pulse_model, i_val, t_val, r_val, p_range, p_time, pulse
-  ;Tzero_I = where(p_time eq 0)
   CasingMeanWfMax = max(pulse, Tzero_I) 
   Tzero=time[Tzero_I]
-  print,'Initial Tzero=',Tzero,' ns'
+  print,'Initial Tzero after baseline fix = ',Tzero,' ns'
+
+  ;; interpolate peak location
+  istat = peak_int(time[[Tzero_I-1, Tzero_I, Tzero_I+1]], pulse[[Tzero_I-1, Tzero_I, Tzero_I+1]], time_int, pulse_int, offset)
+  Tzero = time_int
+  print, 'Initial Tzero after intepolation = ', Tzero, ' ns'
+
+  delta= -casing2Tzero/c2 ; 0.2 meter is about the distance between the rotating mirror and the base. This is an old measurement and needs be updated. 
+  print,'delta=',delta, ' ns'
+  print,''
+
   Tzero=Tzero+delta
   print,'Shifted Tzero',Tzero, ' ns'
   
@@ -382,7 +416,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, AsciiCasingMeanWfFile, AsciiSkyMean
   data_sig=0
   cv=0
   casing_fwhm=0
-  casing_fwhm=(p_time[1]-p_time[0])*total(pulse[where(pulse ge 0)],/double)/max(pulse)
+  casing_fwhm=(p_time[1]-p_time[0])*total(pulse,/double)/max(pulse)
   model_fwhm=casing_fwhm
   
   EVI_base_fix_info=strarr(20)
