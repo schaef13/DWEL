@@ -40,20 +40,22 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   envi, /restore_base_save_files
   envi_batch_init, /no_status_window
   
-  lun=99
-  ofile=101
-  tfile=98
-  fname=''
-  o_name=''
-  debug=1b
-
+  ;; ****some parameters to be set before settling down this routine****
   ;; distance from casing (edge of casing) to the true Tzero position
   casing2Tzero = 0.2 ; unit: meters
   ;; the FWHM of outgoing pulse, ns
   outgoing_fwhm = 5.1
   ;; the full width of outgoing pulse where intensity is below 0.01 of
   ;;maximum
-  pulse_width_range = 5.1 * sqrt(alog(0.01)/alog(0.5))  
+  pulse_width_range = 5.1 * sqrt(alog(0.01)/alog(0.5))
+  ;; ****end of parameter settings****
+  
+  lun=99
+  ofile=101
+  tfile=98
+  fname=''
+  o_name=''
+  debug=1b
   
   ;First setup protective aunty-Catch to watch out for errors
   error_status=0
@@ -347,7 +349,60 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   ;; ; get the background noise (baseline) from this mean waveform
   ;; SkyMeanWf = Get_AsciiWf(AsciiSkyMeanWfFile)
   ;; baseline = SkyMeanWf.wf_y
+
+  ;; store the mean waveform maximum of each line
+  casing_intensity_arr = dblarr(nl)
+  casing_intensity_sd_arr = dblarr(nl)
+  FOR i = 0, nl-1 DO BEGIN
+     index=where((mask_all[*,i] ne 0) and (zeniths[*,i] ge Casing_Range[0] and zeniths[*,i] LE Casing_Range[1]), count)
+     IF (count GT 0) THEN BEGIN
+        data = anc_data[index, i, 5]
+        casing_intensity_arr[i] = mean(data)
+        casing_intensity_sd_arr[i] = stddev(data)
+     ENDIF ELSE BEGIN
+        ;; reserve for something
+     ENDELSE 
+  ENDFOR 
+  ;; ****debug****
+  ;; stop here and plot casing intensity against line number, decide
+  ;; if linear fitting is appropriate
+  ;; ****
+  ;; do a quick linear fitting and excluded outliers outside three sd
+  ;; from the fitting line
+  tmpx = indgen(nl)
   
+  openw, casingmeanfile, DWELCubeFile+'_casing.txt', /get_lun
+  printf, casingmeanfile, format='(%"%f,%f\n")', [reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements)), reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements))]
+  close, casingmeanfile
+
+  ;; Casing_linfit = linfit(tmpx, casing_intensity_arr, measure_errors=casing_intensity_sd_arr, yfit=casing_intensity_fit)
+  ;; index = where(abs(casing_intensity_arr - casing_intensity_fit) le 3*stddev(casing_intensity_arr))
+  ;; casing_linfit = linfit(tmpx[index], casing_intensity_arr[index])
+  ;; casing_intensity_fit = casing_linfit[0] + tmpx * casing_linfit[1]
+
+  ;; remove some outliers with a simple criteria
+  index = where(abs(casing_intensity_arr - mean(casing_intensity_arr)) LE 3*stddev(casing_intensity_arr))
+  casing_polyfit = poly_fit(tmpx[index], casing_intensity_arr[index], 2, measure_errors=casing_intensity_sd_arr[index])
+  casing_intensity_fit = casing_polyfit[0] + casing_polyfit[1]*tmpx + casing_polyfit[2]*tmpx*tmpx
+  ;; remove outliers deviated too much from the fitted curve and redo
+  ;;the fitting
+  index = where(abs(casing_intensity_arr - casing_intensity_fit) le 3*stddev(casing_intensity_arr))
+  casing_polyfit = poly_fit(tmpx[index], casing_intensity_arr[index], 2)
+  casing_intensity_fit = casing_polyfit[0] + casing_polyfit[1]*tmpx + casing_polyfit[2]*tmpx*tmpx
+
+  ;; ****debug***
+  print, 'casing intensity quadratic fit, y=a+b*x+c*x^2: '
+  print, 'a = ', casing_polyfit[0], $
+         ', b = ', casing_polyfit[1], $
+         ', c = ', casing_polyfit[2]
+  openw, casingmeanfile, DWELCubeFile+'_casingfit.txt', /get_lun
+  printf, casingmeanfile, format='(%"%f,%f\n")', [reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements)), reform(casing_intensity_fit, 1, size(casing_intensity_fit, /n_elements))]
+  close, casingmeanfile
+  ;; ****
+
+  ;; get the scale ratio to correct the possible laser output power
+  ;; drop off
+  casing_scale_ratio = casing_intensity_fit[0] / casing_intensity_fit  
   ;; get mean pulse and baseline from the given casing area designated
   ;;by the zenith angles. 
   sum = dblarr(nb)
@@ -357,13 +412,13 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     index=where((mask_all[*,i] ne 0) and (zeniths[*,i] ge Casing_Range[0] and zeniths[*,i] LE Casing_Range[1]), count)
     if (count gt 0L) then begin
       data = envi_get_slice(fid=infile_fid, line=i, /bil)
-      d = double(data[index,*])
+      d = double(data[index,*]) * casing_scale_ratio[i]
       data=0b
       n = n + count
       sum = sum + total(d, 1, /double)
       sum2 = sum2 + total(d^2, 1,/double) ; sum of square waveform over the casing area in this scan line, still a vector
     endif else BEGIN
-       
+       ;; reserve for something
     endelse
     index=0b
     data=0b
@@ -534,12 +589,20 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     pos_z=where(mask_all[*,i] eq 0,count_z)
     temp=float(data)
     ;============================================
-    ;saturation detection
+    ;; saturation detection
+    ;; this saturation detection (only digitizer saturation) should be
+    ;;done before applying any waveform manipulation to waveforms.  
     ;check if the waveform maximum is equal or larger 1023. If so the waveform is identified saturated
     maxtemp = max(temp, dimension=2)
     sat_pos = where(maxtemp ge 1023, count_sat)
     ;============================================
     
+    ;; scale the waveforms according to casing return intensities so
+    ;; that the DN values of different scan lines are at the same
+    ;;level and the laser outgoing power drop-off is corrected
+    temp = temp*casing_scale_ratio[i]
+
+    ;; remove backgroun noises. 
     temp=temp-transpose(baseline)##one_ns
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; check if the mean of the first 100 waveform bins is abnormal
@@ -560,7 +623,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
       for si=0,count_sat-1 do begin
         satflag = apply_sat_fix(temp[sat_pos[si], *], pulse, p_troughloc, p_scdpeakloc, satfixedwf=unsattemp)
         if (~satflag) then begin
-          print, 'line=', i, ', sample=', sat_pos[si]
+          ;; print, 'line=', i, ', sample=', sat_pos[si]
           continue
         endif else begin
           satfixeddata[sat_pos[si], *] = unsattemp
