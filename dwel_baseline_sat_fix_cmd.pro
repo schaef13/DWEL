@@ -390,19 +390,26 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   casing_polyfit = poly_fit(tmpx[index], casing_intensity_arr[index], 2)
   casing_intensity_fit = casing_polyfit[0] + casing_polyfit[1]*tmpx + casing_polyfit[2]*tmpx*tmpx
 
+  ;; get the scale ratio to correct the possible laser output power
+  ;; drop off
+  ;; get a smoothed series of casing intensities against scan line
+  ;; number
+  ;; casing_intensity_smooth = ts_smooth(casing_intensity_arr, 11)
+  casing_scale_ratio = casing_intensity_fit[0] / casing_intensity_fit  
+
   ;; ****debug***
   print, 'casing intensity quadratic fit, y=a+b*x+c*x^2: '
   print, 'a = ', casing_polyfit[0], $
          ', b = ', casing_polyfit[1], $
          ', c = ', casing_polyfit[2]
   openw, casingmeanfile, DWELCubeFile+'_casingfit.txt', /get_lun
-  printf, casingmeanfile, format='(%"%f,%f\n")', [reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements)), reform(casing_intensity_fit, 1, size(casing_intensity_fit, /n_elements))]
+  printf, casingmeanfile, format='(%"%f,%f,%f\n")', $
+          [reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements)), $
+          reform(casing_intensity_fit, 1, size(casing_intensity_fit, /n_elements)), $
+             reform(casing_intensity_smooth, 1, size(casing_intensity_smooth, /n_elements))]
   close, casingmeanfile
   ;; ****
 
-  ;; get the scale ratio to correct the possible laser output power
-  ;; drop off
-  casing_scale_ratio = casing_intensity_fit[0] / casing_intensity_fit  
   ;; get mean pulse and baseline from the given casing area designated
   ;;by the zenith angles. 
   sum = dblarr(nb)
@@ -583,6 +590,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   p_troughloc = i_val[3]
   p_scdpeakloc = i_val[4]
   
+  casing_intensity_arr = fltarr(nl)
   for i=0, num_tiles-1 do begin
   ;first get the data tile
     data=envi_get_tile(tile_id,i)
@@ -642,6 +650,17 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     writeu,ofile,data
     mean_image[*,i]=fln*total(data[*,pos_pos],2)
     max_image[*,i]=float(max(data[*,pos_pos],DIMENSION=2))
+
+    ;; ****debug****
+    index=where((mask_all[*,i] ne 0) and (zeniths[*,i] ge Casing_Range[0] and zeniths[*,i] LE Casing_Range[1]), count)
+     IF (count GT 0) THEN BEGIN
+        data = max_image[index, i]
+        casing_intensity_arr[i] = mean(data)
+        ;; casing_intensity_sd_arr[i] = stddev(data)
+     ENDIF ELSE BEGIN
+        ;; reserve for something
+     ENDELSE 
+    ;; ********
     
     ;=================================================
     ;round if integer else set back in data
@@ -672,6 +691,12 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     temp=0b
   endfor
   
+  ;; ****debug****
+  openw, casingmeanfile, DWELCubeFile+'_casingcorr.txt', /get_lun
+  printf, casingmeanfile, format='(%"%f,%f\n")', [reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements)), reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements))]
+  close, casingmeanfile
+  ;; ****
+
   ;set the output data type
   if (type lt 4 or type gt 9) then begin
     out_type=2
