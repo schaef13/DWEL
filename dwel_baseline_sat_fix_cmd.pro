@@ -46,8 +46,8 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   ;; the FWHM of outgoing pulse, ns
   outgoing_fwhm = 5.1
   ;; the full width of outgoing pulse where intensity is below 0.01 of
-  ;;maximum
-  pulse_width_range = 5.1 * sqrt(alog(0.01)/alog(0.5))
+  ;;maximum, unit: ns
+  pulse_width_range = outgoing_fwhm * sqrt(alog(0.01)/alog(0.5))
   ;; ****end of parameter settings****
   
   lun=99
@@ -405,8 +405,8 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   openw, casingmeanfile, DWELCubeFile+'_casingfit.txt', /get_lun
   printf, casingmeanfile, format='(%"%f,%f,%f\n")', $
           [reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements)), $
-          reform(casing_intensity_fit, 1, size(casing_intensity_fit, /n_elements)), $
-             reform(casing_intensity_smooth, 1, size(casing_intensity_smooth, /n_elements))]
+          reform(casing_intensity_fit, 1, size(casing_intensity_fit, /n_elements))];;, $
+;;             reform(casing_intensity_smooth, 1, size(casing_intensity_smooth, /n_elements))]
   close, casingmeanfile
   ;; ****
 
@@ -612,6 +612,19 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
 
     ;; remove backgroun noises. 
     temp=temp-transpose(baseline)##one_ns
+    
+    ;; somehow after the correction of laser power dropoff, the
+    ;; baseline fix sometimes does not give zero mean background noise
+    ;;level. Thus we recalculate the mean background noise level from
+    ;;the very beginning of waveforms and remove it.
+    tmpind = where(time LT 0.0 - pulse_width_range, tmpcount)
+    IF tmpcount GT 0 THEN BEGIN
+       tmpmean = mean(temp[*, tmpind])
+       temp = temp - tmpmean
+    ENDIF ELSE BEGIN
+       ;; do something
+    ENDELSE
+
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     ; check if the mean of the first 100 waveform bins is abnormal
     tmpmean = mean(temp[*, 0:99], dimension=2)
