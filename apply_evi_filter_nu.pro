@@ -121,19 +121,23 @@ compile_opt idl2
       if (nfok gt 0) then begin
         r[fok] = b[fok]*spsum/temp[fok]
       endif
-    endif else r = b*spsum/temp
+    endif else r = b*spsum/temp ; r is actually the normalized moving average such that the moving averaged waveform is at a comparable level with unit peak.
 ;    b = b*spfac
     temp=0b
     w=0b
     fok=0b
 
-    ; Find data that exceeds the thresholds in B and r and is non-negative
-    ; Also test for exceeding threshold in at least one neighbour.
+    ; Find data that meets several criteria in b and r
     ; Complementary data will be zeroed in output.
-;    test=(b lt b_thresh)
-;;    w=where((test or (r lt r_thresh)) and (shift(test,0,1) or shift(test,0,-1)),num) 
-;    w=where(test and (shift(test,0,1) or shift(test,0,-1)),num)
-;    test=0b
+    ;; due to the nature of asymmetry of DWEL pulse, the moving
+    ;; average of return waveform with pulse model will give us a
+    ;;symmetric and sinc-function-like b and r. Where there is a real
+    ;;signal, in b and r we should see one large peak in the middle,
+    ;;two deep valleys on both sides and then two small peaks on both
+    ;;sides. The criteria here is to find a section of waveform bins
+    ;;that have such a pattern in the b and r. Then this section of
+    ;;waveform bins will be retained as a return signal. Otherwise the
+    ;;waveform bins will be changed to zeros. 
     
     ; Zhan's change: both B and R have to be above the threshold and at least one neighbour does too.
     test1=(b lt b_thresh)
@@ -141,19 +145,7 @@ compile_opt idl2
     w=where(test1 or test2 or (shift(test1, 0, -1) and shift(test1, 0, 1)) or (shift(test2, 0, -1) and shift(test2, 0, 1)), num)
     test1=0b
     test2=0b 
-;
-;    bs1 = shift(b,0,1)
-;    bs2 = shift(b,0,-1)
-;    test1 = (bs1 lt b_thresh)
-;    test2 = (bs2 lt b_thresh)
-;    bs1=0b
-;    bs2=0b
-;    test = (b lt b_thresh) or (r lt r_thresh)
-;    w = where(test and (test1 or test2), num)
-;    test1=0b
-;    test2=0b
-;    test=0b
-;
+
     outdata = abs(line)
     if (num gt 0) then outdata[w] = zero
     w=0b
@@ -162,7 +154,7 @@ compile_opt idl2
       temp=reform(outdata[spos,*])
       F_Power=F_power+total(double(reform(temp[*,(*pstate).range_pos]))^2)/dden
     endif
-;
+
     writeu, ofile, outdata
     if (save_br) then begin
       writeu, bfile,fix(round(b))
@@ -173,7 +165,7 @@ compile_opt idl2
     temp=0b
     spos=0b
     r=0b
-;
+
     if ~keyword_set(quiet) then begin
       envi_report_stat,wb_report,i,nlines,cancel=cancel
       if (cancel) then begin
@@ -184,12 +176,12 @@ compile_opt idl2
           goto, cleanup
       endif
     endif
-;
+
   endfor
   if ~keyword_set(quiet) then envi_report_init, base=wb_report,/finish
 
-(*pstate).T_Power=T_Power
-(*pstate).F_Power=F_Power
+  (*pstate).T_Power=T_Power
+  (*pstate).F_Power=F_Power
 
   dt_br=2 ; integer
 
