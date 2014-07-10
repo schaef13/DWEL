@@ -138,17 +138,41 @@ compile_opt idl2
     ;;that have such a pattern in the b and r. Then this section of
     ;;waveform bins will be retained as a return signal. Otherwise the
     ;;waveform bins will be changed to zeros. 
-    
-    ; Zhan's change: both B and R have to be above the threshold and at least one neighbour does too.
-    test1=(b lt b_thresh)
-    test2=(r lt r_thresh)
-    w=where(test1 or test2 or (shift(test1, 0, -1) and shift(test1, 0, 1)) or (shift(test2, 0, -1) and shift(test2, 0, 1)), num)
-    test1=0b
-    test2=0b 
-
-    outdata = abs(line)
-    if (num gt 0) then outdata[w] = zero
-    w=0b
+    ;; criterion 1: absolute of b is above a given threshold
+    index_b = abs(b) GE b_thresh
+    ;; criterion 2: absolute of r is above a given threshold
+    index_r = abs(r) GE r_thresh
+    ;; criterion 3: find the peaks and troughs in the b and r that
+    ;; also meet criteria 1 and 2
+    db = b - shift(b, 0, 1)
+    dr = r - shift(r, 0, 1)
+    index_bpeak = (shift(db, 0, 1) GT 0) AND (shift(db, 0, -1) LE 0)
+    index_btrough = (shift(db, 0, 1) LE 0) AND (shift(db, 0, -1) GT 0)
+    index_rpeak = (shift(dr, 0, 1) GT 0) AND (shift(dr, 0, -1) LE 0)
+    index_rtrough = (shift(dr, 0, 1) LE 0) AND (shift(dr, 0, -1) GT 0)
+    index_bloc = (index_bpeak OR index_btrough) AND index_b
+    index_rloc = (index_rpeak OR index_rtrough) AND index_r
+    index_bloc[*, 0] = 0b
+    index_rloc[*, nb-1] = 0b
+    ;; criterion 4: find those bins that have at least four neighbors
+    ;;meeeting the criterion 3 within a given search window of which
+    ;;size is determined from the pulse width
+    search_width = 61 ; in unit of number of bins
+    index_peak = (smooth(float(index_bloc), [1, search_width]) GT 5) AND (smooth(float(index_rloc), [1, search_width]) GT 5) ;; 60 is from the observation of self cross-correlation of DWEL pusle model. 
+    pos_peak = where( transpose(index_signal) )
+    pos_signal = lonarr(search_width*size(pos_peak, /n_elements))
+    half_width = fix(search_width/2)
+    ;; retain bins within windows of given size centered at identified
+    ;;peak locations.  
+    FOR w = -1*half_width, half_width DO BEGIN
+       pos_signal[(w+half_width)*search_width:(w+half_width+1)*search_width-1] = pos_peak + w
+    ENDFOR 
+    tmppos = where(pos_signal GE 0 AND pos_signal LT size(b, /n_elements))
+    pos_signal = pos_signal[tmppos]
+    tline = transpose(line)
+    outdata = make_array(size(tline))
+    outdata[pos_signal] = tline[pos_signal]
+    outdata = transpose(outdata)
 
     if (nspos gt 0) then begin
       temp=reform(outdata[spos,*])
