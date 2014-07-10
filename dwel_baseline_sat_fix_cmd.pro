@@ -473,10 +473,9 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   ;set up the EVI header information for the base fixing
   ;this header is just a dummy thing for this output file to be accomodated by following EVI routines.
   ;values of some properties in this header is fabricated and fake.
-  data_max=0
-  data_max=1.0
-  data_sig=0
-  cv=0
+  data_max=max(casing_intensity_fit)
+  data_sig=mean(casing_intensity_sd_arr)
+  cv=100 * data_sig / (data_max - min(casing_intensity_fit))
   casing_fwhm=0
   casing_fwhm=(p_time[1]-p_time[0])*total(pulse,/double)/max(pulse)
   model_fwhm=casing_fwhm
