@@ -47,7 +47,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   outgoing_fwhm = 5.1
   ;; the full width of outgoing pulse where intensity is below 0.01 of
   ;;maximum, unit: ns
-  pulse_width_range = outgoing_fwhm * sqrt(alog(0.01)/alog(0.5))
+  pulse_width_range = outgoing_fwhm * sqrt(alog(0.001)/alog(0.5))
   ;; ****end of parameter settings****
   
   lun=99
@@ -618,7 +618,8 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     ;;the very beginning of waveforms and remove it.
     tmpind = where(time LT 0.0 - pulse_width_range, tmpcount)
     IF tmpcount GT 0 THEN BEGIN
-       tmpmean = mean(temp[*, tmpind])
+       tmpmean = mean(temp[*, tmpind], dimension=2)
+       tmpmean = transpose(one_nb)##tmpmean
        temp = temp - tmpmean
     ENDIF ELSE BEGIN
        ;; do something
