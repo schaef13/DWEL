@@ -22,10 +22,24 @@ pro apply_evi_filter_nu, fid, p, outfile, b_thresh, r_thresh, $
   dt, nsamples, nlines, nbands,  $
   save_br, bdatafile, rdatafile, pstate, ierr, quiet=quiet, $
   dt_br=dt_br
-compile_opt idl2
+
+  compile_opt idl2
   
   print, 'in apply_evi_filter_nu, b_thresh=', b_thresh
   print, 'in apply_evi_filter_nu, r_thresh=', r_thresh
+
+  sample_interval = 0.5 ;; unit: ns
+  ;; create a Gaussian filter. 
+  ;; the FWHM of outgoing pulse, ns
+  outgoing_fwhm = 5.1
+  ;; get a normalized Gaussian filter (integral is one)
+  outgoing_sigma = outgoing_fwhm / (2 * sqrt(2*alog(2)))
+  pulse_half_range = outgoing_fwhm * sqrt(alog(0.001)/alog(0.5)) / 2.0
+  gp_half_len = fix(pulse_half_range / sample_interval)
+  tmpx = (indgen(2*gp_half_len+1) - gp_half_len) * sample_interval
+  tmpy = 1.0 / (outgoing_sigma*sqrt(2*!pi)) * exp(-1*tmpx*tmpx/(2*outgoing_sigma^2))
+  gaussian_pulse = fltarr(1, size(tmpy, /n_elements))
+  gaussian_pulse[0, *] = tmpy
   
   ierr=0
   T_Power=0.0d0
@@ -41,6 +55,9 @@ compile_opt idl2
   if (save_br) then begin
     openw, bfile, bdatafile, /get
     openw, rfile, rdatafile, /get
+    openw, blocfile, bdatafile+'bloc.img', /get
+    openw, rlocfile, rdatafile+'rloc.img', /get
+    openw, locfile, outfile+'loc.img', /get
   endif
 
   if ~keyword_set(quiet) then begin
@@ -92,6 +109,7 @@ compile_opt idl2
   pos=indgen(nbands)
 ; Loop through each line, calculate B and R (correlation) and apply filter.
 ; Write to output file.
+  gp_len = size(gaussian_pulse, /n_elements)
   for i=0,nlines-1 do begin
     line = envi_get_slice(fid=fid, /bil, pos=pos, line=i, xs=0, xe=nsamples-1)  ; line is ns by nb
     spos=where(reform((*pstate).mask[*,i]) gt 0,nspos)
@@ -102,6 +120,24 @@ compile_opt idl2
 
     b=fltarr(nsamples,nbands)
     r=fltarr(nsamples,nbands)
+
+    ;; smooth the return waveform with a Gaussian filter created
+    ;;according to the outgoing pulse width. The objective is to
+    ;;filter out noises in the return waveform before correlating it
+    ;;with outgoing pulse and searching for signals. 
+    ;; store the original waveform in another variable for later use
+    ;; and use variable 'line' to store a Gaussian-filtered waveform
+    oldline = line
+    T_Pad=total(float(line[*,0:19]),2)/20.0 ; 1 by ns array, each element is an average of the first 20 bins of each waveform
+    T_pad=cmreplicate(T_pad,gp_len)  ; num_pad by ns array, each row is the averages of all columns in this line
+    B_pad=total(float(line[*,nbands-20:nbands-1]),2)/20.0 ; average of the last 20 bins
+    B_pad=cmreplicate(B_pad,gp_len)
+    t=[[T_pad],[float(line)],[B_pad]] ; use the average of first and last 20 bins to pad the leading and trail part of all the waveforms in this line 
+    T_pad=0b
+    B_pad=0b
+    c = convol(t, gaussian_pulse)
+    line = c[*, gp_len:gp_len+nbands-1]
+    c = 0b
 
     T_Pad=total(float(line[*,0:19]),2)/20.0 ; 1 by ns array, each element is an average of the first 20 bins of each waveform
     T_pad=cmreplicate(T_pad,num_pad)  ; num_pad by ns array, each row is the averages of all columns in this line
@@ -115,14 +151,15 @@ compile_opt idl2
     c=0b
     temp=sqrt(smooth(t^2,[1,num_pad])) ; root mean square of the return waveform
     temp = temp[*,num_pad:num_pad+nbands-1]
-    w = where(temp lt s_thresh, nw, compl=fok, ncompl=nfok)
-    if (nw gt 0) then begin
-      r[w] = 0.0
-      if (nfok gt 0) then begin
-        r[fok] = b[fok]*spsum/temp[fok]
-      endif
-    endif else r = b*spsum/temp ; r is actually the normalized moving average such that the moving averaged waveform is at a comparable level with unit peak.
-;    b = b*spfac
+    ;; w = where(temp lt s_thresh, nw, compl=fok, ncompl=nfok)
+    ;; if (nw gt 0) then begin
+    ;;   r[w] = 0.0
+    ;;   if (nfok gt 0) then begin
+    ;;     r[fok] = b[fok]*spsum/temp[fok]
+    ;;   endif
+    ;; endif else r = b*spsum/temp 
+    r = b*spsum/temp
+    ; r is actually the normalized moving average such that the moving averaged waveform is at a comparable level with unit peak.
     temp=0b
     w=0b
     fok=0b
@@ -153,26 +190,38 @@ compile_opt idl2
     index_bloc = (index_bpeak OR index_btrough) AND index_b
     index_rloc = (index_rpeak OR index_rtrough) AND index_r
     index_bloc[*, 0] = 0b
-    index_rloc[*, nb-1] = 0b
+    index_rloc[*, nbands-1] = 0b
     ;; criterion 4: find those bins that have at least four neighbors
-    ;;meeeting the criterion 3 within a given search window of which
+    ;;meeting the criterion 3 within a given search window of which
     ;;size is determined from the pulse width
-    search_width = 61 ; in unit of number of bins
-    index_peak = (smooth(float(index_bloc), [1, search_width]) GT 5) AND (smooth(float(index_rloc), [1, search_width]) GT 5) ;; 60 is from the observation of self cross-correlation of DWEL pusle model. 
-    pos_peak = where( transpose(index_signal) )
-    pos_signal = lonarr(search_width*size(pos_peak, /n_elements))
-    half_width = fix(search_width/2)
-    ;; retain bins within windows of given size centered at identified
-    ;;peak locations.  
-    FOR w = -1*half_width, half_width DO BEGIN
-       pos_signal[(w+half_width)*search_width:(w+half_width+1)*search_width-1] = pos_peak + w
-    ENDFOR 
-    tmppos = where(pos_signal GE 0 AND pos_signal LT size(b, /n_elements))
-    pos_signal = pos_signal[tmppos]
-    tline = transpose(line)
-    outdata = make_array(size(tline))
-    outdata[pos_signal] = tline[pos_signal]
-    outdata = transpose(outdata)
+    search_width = 51 ; in unit of number of bins, from the observation of self cross-correlation of DWEL pusle model. 
+    min_peaknum = 5 ; minimum number of detected peaks or troughs
+    ;; index_peak = (smooth(float(index_bloc), [1, search_width], /EDGE_TRUNCATE) GE float(min_peaknum*2)/float(search_width)) AND (smooth(float(index_rloc), [1, search_width], /EDGE_TRUNCATE) GE float(min_peaknum*2)/float(search_width)) ;; 60 is from the observation of self cross-correlation of DWEL pusle model. 
+    index_loc = index_bloc AND index_rloc
+    index_peak = (smooth(float(index_loc), [1, search_width], /EDGE_TRUNCATE) GE float(min_peaknum*2)/float(search_width)) AND index_loc
+    ;; ;; ****debug****
+    ;; print, 'b peak #: ', total(smooth(float(index_bloc), [1, search_width]) GE 5.0/float(search_width))
+    ;; print, 'r peak #: ', total(smooth(float(index_rloc), [1, search_width]) GE 5.0/float(search_width))
+    ;; ;; ****
+    pos_peak = where( transpose(index_peak), peakcount)
+    IF peakcount GT 0 THEN BEGIN
+       pos_signal = lonarr(search_width*size(pos_peak, /n_elements))
+       half_width = fix(search_width/2)
+       ;; retain bins within windows of given size centered at identified
+       ;;peak locations.  
+       FOR w = -1*half_width, half_width DO BEGIN
+          pos_signal[(w+half_width)*peakcount:(w+half_width+1)*peakcount-1] = pos_peak + w
+       ENDFOR 
+       tmppos = where(pos_signal GE 0 AND pos_signal LT size(b, /n_elements))
+       pos_signal = pos_signal[tmppos]
+       tline = transpose(oldline)
+       outdata = make_array(dimension=size(tline, /dimensions), type=size(tline, /type))
+       outdata[pos_signal] = tline[pos_signal]
+       outdata = transpose(outdata)
+       pos_signal = 0
+    ENDIF ELSE BEGIN
+       outdata = make_array(dimension=size(line, /dimensions), type=size(line, /type))
+    ENDELSE  
 
     if (nspos gt 0) then begin
       temp=reform(outdata[spos,*])
@@ -183,6 +232,9 @@ compile_opt idl2
     if (save_br) then begin
       writeu, bfile,fix(round(b))
       writeu, rfile,fix(round(r*1000))
+      writeu, blocfile, index_bloc
+      writeu, rlocfile, index_rloc
+      writeu, locfile, index_peak
     endif
     outdata=0b
     b=0b
@@ -215,6 +267,22 @@ compile_opt idl2
   if (save_br) then begin
     free_lun, bfile,/force
     free_lun, rfile,/force
-  endif
+    envi_setup_head, data_type=size(index_bloc, /type), fname=bdatafile+'bloc.img', nb = nbands, nl = nlines, $
+    ns = nsamples, interleave=1, $
+    /write, r_fid=blocfile, $
+    zplot_titles=['bin','bloc']
+    envi_setup_head, data_type=size(index_rloc, /type), fname=rdatafile+'rloc.img', nb = nbands, nl = nlines, $
+    ns = nsamples, interleave=1, $
+    /write, r_fid=rlocfile, $
+    zplot_titles=['bin','rloc']
+    envi_setup_head, data_type=size(index_peak, /type), fname=outfile+'loc.img', nb = nbands, nl = nlines, $
+    ns = nsamples, interleave=1, $
+    /write, r_fid=locfile, $
+    zplot_titles=['bin','loc']
+    free_lun, blocfile, /force
+    free_lun, rlocfile, /force
+    free_lun, locfile, /force
+ ENDIF
+
   return
 end
