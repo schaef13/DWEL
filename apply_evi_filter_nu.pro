@@ -201,6 +201,11 @@ pro apply_evi_filter_nu, fid, p, outfile, b_thresh, r_thresh, $
     ;; index_peak = (smooth(float(index_bloc), [1, search_width], /EDGE_TRUNCATE) GE float(min_peaknum*2)/float(search_width)) AND (smooth(float(index_rloc), [1, search_width], /EDGE_TRUNCATE) GE float(min_peaknum*2)/float(search_width)) ;; 60 is from the observation of self cross-correlation of DWEL pusle model. 
     index_loc = index_bloc AND index_rloc
     index_peak = (smooth(float(index_loc), [1, search_width], /EDGE_TRUNCATE) GE float(min_peaknum*2)/float(search_width)) AND index_loc
+    ;; if a peak has a substantially large b and r values, include it
+    ;; no matter if it has sufficient number of surrounding peaks and
+    ;;troughs. 
+    complement_peak = (index_bpeak AND (b GE 4*b_thresh)) AND (index_rpeak AND (r GE 4*r_thresh))
+    index_peak = index_peak OR complement_peak
     ;; ;; ****debug****
     ;; print, 'b peak #: ', total(smooth(float(index_bloc), [1, search_width]) GE 5.0/float(search_width))
     ;; print, 'r peak #: ', total(smooth(float(index_rloc), [1, search_width]) GE 5.0/float(search_width))
