@@ -176,9 +176,9 @@ pro apply_evi_filter_nu, fid, p, outfile, b_thresh, r_thresh, $
     ;;waveform bins will be retained as a return signal. Otherwise the
     ;;waveform bins will be changed to zeros. 
     ;; criterion 1: absolute of b is above a given threshold
-    index_b = abs(b) GE b_thresh
+;;    index_b = abs(b) GE b_thresh
     ;; criterion 2: absolute of r is above a given threshold
-    index_r = abs(r) GE r_thresh
+;;    index_r = abs(r) GE r_thresh
     ;; criterion 3: find the peaks and troughs in the b and r that
     ;; also meet criteria 1 and 2
     db = b - shift(b, 0, 1)
@@ -187,15 +187,17 @@ pro apply_evi_filter_nu, fid, p, outfile, b_thresh, r_thresh, $
     index_btrough = (shift(db, 0, 1) LE 0) AND (shift(db, 0, -1) GT 0)
     index_rpeak = (shift(dr, 0, 1) GT 0) AND (shift(dr, 0, -1) LE 0)
     index_rtrough = (shift(dr, 0, 1) LE 0) AND (shift(dr, 0, -1) GT 0)
-    index_bloc = (index_bpeak OR index_btrough) AND index_b
-    index_rloc = (index_rpeak OR index_rtrough) AND index_r
+    index_bloc = (index_bpeak AND (b GE b_thresh)) OR (index_btrough AND (b LE -1*b_thresh))
+    index_rloc = (index_rpeak AND (r GE r_thresh)) OR (index_rtrough AND (r LE -1*r_thresh))
+;;    index_bloc = (index_bpeak OR index_btrough) AND index_b
+;;    index_rloc = (index_rpeak OR index_rtrough) AND index_r
     index_bloc[*, 0] = 0b
     index_rloc[*, nbands-1] = 0b
     ;; criterion 4: find those bins that have at least four neighbors
     ;;meeting the criterion 3 within a given search window of which
     ;;size is determined from the pulse width
     search_width = 51 ; in unit of number of bins, from the observation of self cross-correlation of DWEL pusle model. 
-    min_peaknum = 5 ; minimum number of detected peaks or troughs
+    min_peaknum = 3 ; minimum number of detected peaks or troughs
     ;; index_peak = (smooth(float(index_bloc), [1, search_width], /EDGE_TRUNCATE) GE float(min_peaknum*2)/float(search_width)) AND (smooth(float(index_rloc), [1, search_width], /EDGE_TRUNCATE) GE float(min_peaknum*2)/float(search_width)) ;; 60 is from the observation of self cross-correlation of DWEL pusle model. 
     index_loc = index_bloc AND index_rloc
     index_peak = (smooth(float(index_loc), [1, search_width], /EDGE_TRUNCATE) GE float(min_peaknum*2)/float(search_width)) AND index_loc
@@ -220,7 +222,7 @@ pro apply_evi_filter_nu, fid, p, outfile, b_thresh, r_thresh, $
        outdata = transpose(outdata)
        pos_signal = 0
     ENDIF ELSE BEGIN
-       outdata = make_array(dimension=size(line, /dimensions), type=size(line, /type))
+       outdata = make_array(dimension=size(oldline, /dimensions), type=size(oldline, /type))
     ENDELSE  
 
     if (nspos gt 0) then begin
