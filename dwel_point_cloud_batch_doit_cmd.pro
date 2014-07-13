@@ -1941,798 +1941,798 @@ pro dwel_point_cloud_batch_doit_cmd, script_file
         'ND015' : F_casing = 1.0
         'ND030' : F_casing = 2.25
         'ND1' : F_casing = 8.0
-      else : F_casing = 3.4
-    endcase
-    CM=CM/F_casing
-  endelse
-  F_casing=132.77/CM
-  ;
-  if (~got_cm) then begin
-    printf,tfile,strtrim('EVI file has NO casing information!',2)
-    printf,tfile,'Input File: '+strtrim(datafile[j_case],2)
-    printf,tfile,'Error occurred for case '+case_add
-    run_stat[j_case]=1
-    goto, end_loop
-  endif
-  
-  ; Check ancillary file
-  ; First, if ancillary file names weren't given, we need to build them.
-  if (ancfile[j_case] eq '') then begin
-    if (~projected) then begin
-      pos = strpos(f_base, 'cube_bil',/reverse_search)
-      ancfile[j_case]=strtrim(f_path,2)+strmid(f_base,0,pos+8)+'_ancillary.img'
-    endif else begin
-      if (n_dot le 0) or (n_base-n_dot ne 4) then begin
-        ancfile[j_case]=strtrim(f_path,2)+f_base+'_extrainfo'
+        else : F_casing = 3.4
+      endcase
+     CM=CM/F_casing
+    endelse
+    F_casing=132.77/CM
+    ;
+    if (~got_cm) then begin
+      printf,tfile,strtrim('EVI file has NO casing information!',2)
+      printf,tfile,'Input File: '+strtrim(datafile[j_case],2)
+      printf,tfile,'Error occurred for case '+case_add
+      run_stat[j_case]=1
+      goto, end_loop
+    endif
+
+    ; Check ancillary file
+    ; First, if ancillary file names weren't given, we need to build them.
+    if (ancfile[j_case] eq '') then begin
+      if (~projected) then begin
+        pos = strpos(f_base, 'cube_bil',/reverse_search)
+        ancfile[j_case]=strtrim(f_path,2)+strmid(f_base,0,pos+8)+'_ancillary.img'
       endif else begin
-        ancfile[j_case]=strtrim(f_path,2)+strmid(f_base,0,n_dot)+'_extrainfo.img'
+        if (n_dot le 0) or (n_base-n_dot ne 4) then begin
+          ancfile[j_case]=strtrim(f_path,2)+f_base+'_extrainfo'
+        endif else begin
+          ancfile[j_case]=strtrim(f_path,2)+strmid(f_base,0,n_dot)+'_extrainfo.img'
+        endelse
       endelse
-    endelse
-  endif
-  if (~file_test(ancfile[j_case])) then begin
-    printf,tfile,strtrim('Ancillary file does not exist',2)
-    printf,tfile,'Ancillary File: '+strtrim(datafile[j_case],2)
-    printf,tfile,'Error occurred for case '+case_add
-    run_stat[j_case]=1
-    goto, end_loop
-  endif
-  envi_open_file, ancfile[j_case], r_fid=ancillaryfile_fid,/no_realize
-  ;check if operation cancelled
-  if (ancillaryfile_fid eq -1) then begin
-    printf,tfile,strtrim('Error opening ancillary file',2)
-    printf,tfile,'Ancillary File: '+strtrim(datafile[j_case],2)
-    printf,tfile,'Error occurred for case '+case_add
-    run_stat[j_case]=1
-    goto, end_loop
-  endif
-  envi_file_query, ancillaryfile_fid, nb=nb_anc, nl=nl_anc, ns=ns_anc
-  
-  if ((nl_anc ne nl) or (ns_anc ne ns) or (nb_anc lt 3)) then begin
-    printf,tfile,strtrim('Ancillary data does not conform with input data',2)
-    printf,tfile,'Ancillary File: '+strtrim(datafile[j_case],2)
-    printf,tfile,'Error occurred for case '+case_add
-    run_stat[j_case]=1
-    goto, end_loop
-  endif
-  
-  Mask=bytarr(ns,nl)
-  ; Get the mask band
-  dims = [-1, 0, ns-1, 0, nl-1]
-  if (~projected) then begin
-    Mask = byte(envi_get_data(fid=ancillaryfile_fid, dims=dims, pos=6))
-  endif else begin
-    Mask = byte(envi_get_data(fid=ancillaryfile_fid, dims=dims, pos=3))
-  endelse
-  envi_file_mng,id=ancillaryfile_fid,/remove
-  pos_mask=where(Mask,num_mask)
-  if (num_mask le 0) then begin
-    printf,tfile,strtrim('The Mask band from an ancillary file is all zero !',2)
-    printf,tfile,'Ancillary File: '+strtrim(datafile[j_case],2)
-    printf,tfile,'Error occurred for case '+case_add
-    run_stat[j_case]=1
-    goto, end_loop
-  endif
-  Mask=0b
-  pos_mask=0b
-  
-  ;Test the output files
-  ; First, if output file names weren't given, we need to build them.
-  if (outfile[j_case] eq '') then begin
-    if((n_dot le 0) or (n_base-n_dot ne 4)) then begin
-      outfile[j_case]=f_base+'_ptcld.txt'
+    endif
+    if (~file_test(ancfile[j_case])) then begin
+      printf,tfile,strtrim('Ancillary file does not exist',2)
+      printf,tfile,'Ancillary File: '+strtrim(datafile[j_case],2)
+      printf,tfile,'Error occurred for case '+case_add
+      run_stat[j_case]=1
+      goto, end_loop
+    endif
+    envi_open_file, ancfile[j_case], r_fid=ancillaryfile_fid,/no_realize
+    ;check if operation cancelled
+    if (ancillaryfile_fid eq -1) then begin
+      printf,tfile,strtrim('Error opening ancillary file',2)
+      printf,tfile,'Ancillary File: '+strtrim(datafile[j_case],2)
+      printf,tfile,'Error occurred for case '+case_add
+      run_stat[j_case]=1
+      goto, end_loop
+    endif
+    envi_file_query, ancillaryfile_fid, nb=nb_anc, nl=nl_anc, ns=ns_anc
+
+    if ((nl_anc ne nl) or (ns_anc ne ns) or (nb_anc lt 3)) then begin
+      printf,tfile,strtrim('Ancillary data does not conform with input data',2)
+      printf,tfile,'Ancillary File: '+strtrim(datafile[j_case],2)
+      printf,tfile,'Error occurred for case '+case_add
+      run_stat[j_case]=1
+      goto, end_loop
+    endif
+
+    Mask=bytarr(ns,nl)
+    ; Get the mask band
+    dims = [-1, 0, ns-1, 0, nl-1]
+    if (~projected) then begin
+      Mask = byte(envi_get_data(fid=ancillaryfile_fid, dims=dims, pos=6))
     endif else begin
-      outfile[j_case]=strmid(f_base,0,n_dot)+'_ptcld.txt'
+      Mask = byte(envi_get_data(fid=ancillaryfile_fid, dims=dims, pos=3))
     endelse
-    outfile[j_case]=strtrim(f_path,2)+outfile[j_case]
-  endif
-  
-  ; Create the output directory (if it already exists, this code will do nothing)
-  o_dir = file_dirname(outfile[j_case])
-  file_mkdir, o_dir
-  
-  ;The output should NOT be the input file
-  if (strtrim(outfile[j_case],2) eq $
-    strtrim(datafile[j_case],2)) then begin
-    printf,tfile,strtrim('File name conflict encountered',2)
-    printf,tfile,strtrim('Output cannot be the Input !',2)
-    printf,tfile,'Output File: '+strtrim(outfile[j_case],2)
-    printf,tfile,'Input File: '+strtrim(datafile[j_case],2)
-    printf,tfile,'Error occurred for case '+case_add
-    run_stat[j_case]=1
-    goto, end_loop
-  endif
-  
-  ;see if the output file exists
-  ;if so it is either a mistake or user wishes to replace
-  ;it by the new file
-  ;replacing it involves checking for open files in ENVI
-  ;and closing it or them
-  if(file_test(outfile[j_case])) then begin
-    fids=envi_get_file_ids()
-    if(fids[0] eq -1) then begin
-      file_delete, outfile[j_case],/quiet
-    endif else begin
-      for i=0,n_elements(fids)-1 do begin
-        envi_file_query,fids[i],fname=tname
-        if (strtrim(strlowcase(outfile[j_case]),2) eq $
-          strtrim(strlowcase(tname),2)) then begin
-          envi_file_mng,id=fids[i],/remove
-        endif
-      endfor
-      file_delete, outfile[j_case],/quiet
-    endelse
-  endif
-  
-  ;Open output file
-  text_err=0
-  openw, ofile, outfile[j_case],/get_lun,error=text_err
-  if (text_err ne 0) then begin
-    printf,tfile,'Error in case '+case_add
-    printf,tfile,'Error opening output file '+strtrim(outfile,2)
-    run_stat[j_case]=1
+    envi_file_mng,id=ancillaryfile_fid,/remove
+    pos_mask=where(Mask,num_mask)
+    if (num_mask le 0) then begin
+      printf,tfile,strtrim('The Mask band from an ancillary file is all zero !',2)
+      printf,tfile,'Ancillary File: '+strtrim(datafile[j_case],2)
+      printf,tfile,'Error occurred for case '+case_add
+      run_stat[j_case]=1
+      goto, end_loop
+    endif
+    Mask=0b
+    pos_mask=0b
+
+    ;Test the output files
+    ; First, if output file names weren't given, we need to build them.
+    if (outfile[j_case] eq '') then begin
+      if((n_dot le 0) or (n_base-n_dot ne 4)) then begin
+        outfile[j_case]=f_base+'_ptcld.txt'
+      endif else begin
+        outfile[j_case]=strmid(f_base,0,n_dot)+'_ptcld.txt'
+      endelse
+      outfile[j_case]=strtrim(f_path,2)+outfile[j_case]
+    endif
+
+    ; Create the output directory (if it already exists, this code will do nothing)
+    o_dir = file_dirname(outfile[j_case])
+    file_mkdir, o_dir
+
+    ;The output should NOT be the input file
+    if (strtrim(outfile[j_case],2) eq $
+      strtrim(datafile[j_case],2)) then begin
+      printf,tfile,strtrim('File name conflict encountered',2)
+      printf,tfile,strtrim('Output cannot be the Input !',2)
+      printf,tfile,'Output File: '+strtrim(outfile[j_case],2)
+      printf,tfile,'Input File: '+strtrim(datafile[j_case],2)
+      printf,tfile,'Error occurred for case '+case_add
+      run_stat[j_case]=1
+      goto, end_loop
+    endif
+
+    ;see if the output file exists
+    ;if so it is either a mistake or user wishes to replace
+    ;it by the new file
+    ;replacing it involves checking for open files in ENVI
+    ;and closing it or them
+    if(file_test(outfile[j_case])) then begin
+      fids=envi_get_file_ids()
+      if(fids[0] eq -1) then begin
+        file_delete, outfile[j_case],/quiet
+      endif else begin
+        for i=0,n_elements(fids)-1 do begin
+          envi_file_query,fids[i],fname=tname
+          if (strtrim(strlowcase(outfile[j_case]),2) eq $
+            strtrim(strlowcase(tname),2)) then begin
+            envi_file_mng,id=fids[i],/remove
+          endif
+        endfor
+        file_delete, outfile[j_case],/quiet
+      endelse
+    endif
+
+    ;Open output file
+    text_err=0
+    openw, ofile, outfile[j_case],/get_lun,error=text_err
+    if (text_err ne 0) then begin
+      printf,tfile,'Error in case '+case_add
+      printf,tfile,'Error opening output file '+strtrim(outfile,2)
+      run_stat[j_case]=1
+      free_lun,ofile,/force
+      goto, end_loop
+    endif
     free_lun,ofile,/force
-    goto, end_loop
-  endif
-  free_lun,ofile,/force
-  file_delete, outfile[j_case], /quiet
-  
-  ;check azimuth to north correct
-  if ((evi_az_n[j_case] lt 0.0) or (evi_az_n[j_case] gt 360.0)) then begin
-    printf,tfile,strtrim('EVI azimuth to North is out of bounds',2)
-    printf,tfile,'Input File: '+strtrim(datafile[j_case],2)
-    printf,tfile,'Error occurred for case '+case_add
-    run_stat[j_case]=1
-    goto, end_loop
-  endif
-  
-  ; end of checking
-  
-  end_loop:
-  flush, tfile
-endfor
+    file_delete, outfile[j_case], /quiet
 
-; Get disk required in GB
-;gbsize = float(disk_needed)/(1024.0^3)
+    ;check azimuth to north correct
+    if ((evi_az_n[j_case] lt 0.0) or (evi_az_n[j_case] gt 360.0)) then begin
+      printf,tfile,strtrim('EVI azimuth to North is out of bounds',2)
+      printf,tfile,'Input File: '+strtrim(datafile[j_case],2)
+      printf,tfile,'Error occurred for case '+case_add
+      run_stat[j_case]=1
+      goto, end_loop
+    endif
 
-;tell the IDL output checking complete
-print,'Input Script File validity checking complete'
+    ; end of checking
 
-;now report to the user and act accordingly
-pos_err=where(run_stat gt 0,count)
-
-;report how many cases in error in the log file
-if (count gt 0) then begin
-  printf,tfile,'There were '+strtrim(string(count,format='(i8)'),2)+' cases in error'
-endif
-flush, tfile
-
-;now get the user to initiate the batch processing or exit
-if (count gt 0) then begin
-  info_text=['There were errors found in the checking', $
-    ' ',$
-    'Check the output log file for the details and re-run',$
-    'Log File Name: '+strtrim(log_file,2), $
-    ' ',$
-    'evi_point_cloud_batch terminating']
-  for j=0,n_elements(info_text)-1 do begin
-    print,info_text[j]
+    end_loop:
+    flush, tfile
   endfor
-  ;; result=dialog_message(info_text,/error,title='Errors in
-  ;;evi_point_cloud_batch input')
-  print, info_text
+
+  ; Get disk required in GB
+  ;gbsize = float(disk_needed)/(1024.0^3)
+
+  ;tell the IDL output checking complete
+  print,'Input Script File validity checking complete'
+
+  ;now report to the user and act accordingly
+  pos_err=where(run_stat gt 0,count)
+
+  ;report how many cases in error in the log file
+  if (count gt 0) then begin
+    printf,tfile,'There were '+strtrim(string(count,format='(i8)'),2)+' cases in error'
+  endif
+  flush, tfile
+
+  ;now get the user to initiate the batch processing or exit
+  if (count gt 0) then begin
+    info_text=['There were errors found in the checking', $
+      ' ',$
+      'Check the output log file for the details and re-run',$
+      'Log File Name: '+strtrim(log_file,2), $
+      ' ',$
+      'evi_point_cloud_batch terminating']
+    for j=0,n_elements(info_text)-1 do begin
+      print,info_text[j]
+    endfor
+    ;; result=dialog_message(info_text,/error,title='Errors in
+    ;;evi_point_cloud_batch input')
+    print, info_text
+    ;;get state pointer to close up the widgets
+    ;  widget_control,event.top,get_uvalue=pstate
+    ;;clean up pointers
+    ;  result=ptr_valid(pstate)
+    ;  if (result) then ptr_free, pstate
+    ;  widget_control,event.top,/destroy
+    goto,out
+  endif else begin
+    info_text=['Input script information checked',$
+      'There are '+strtrim(string(n_case,format='(i8)'),2)+' cases and all are feasible']
+    nlist=1
+    info_text=[info_text,' ',$
+      'OK to start off the batch run? (Yes/No)']
+    printf,tfile,''
+    printf,tfile,'********************************'
+    for j=0,nlist do begin
+      printf,tfile,info_text[j]
+    endfor
+
+    ;now list the input information to the log file
+    printf,tfile,'********************************'
+    printf,tfile,'Run Information:'
+    printf,tfile,'n_case='+strtrim(string(n_case,format='(i8)'),2)
+    printf,tfile,'log file='+strtrim(log_file,2)
+    printf,tfile,'Run Description: '+strtrim(run_desc,2)
+    printf,tfile,' '
+    printf,tfile,'Data file List:'
+    for j=0,n_case-1 do begin
+      printf,tfile,strtrim(datafile[j],2)
+    endfor
+    printf,tfile,' '
+    printf,tfile,'Ancillary file List:'
+    for j=0,n_case-1 do begin
+      printf,tfile,strtrim(ancfile[j],2)
+    endfor
+    printf,tfile,' '
+    printf,tfile,'Output Image List:'
+    for j=0,n_case-1 do begin
+      printf,tfile,strtrim(outfile[j],2)
+    endfor
+    printf,tfile,' '
+    printf,tfile,'Calibration Flag List=',calib
+    printf,tfile,' '
+    printf,tfile,'evi_az_n List=',evi_az_n
+    printf,tfile,' '
+    if (add_evi gt 0) then begin
+      printf,tfile,'Points for EVI base and top added for ALL output pt clouds'
+    endif else begin
+      printf,tfile,'Points for EVI base and top NOT added to output pt clouds'
+    endelse
+    printf,tfile,' '
+    if (save_zero_hits gt 0) then begin
+      printf,tfile,'Zero hits (pure gaps) saved for ALL output pt clouds'
+    endif else begin
+      printf,tfile,'Zero hits (pure gaps) NOT saved in output pt clouds'
+    endelse
+    flush, tfile
+
+  ;;all ready so ask if the user really wants to start it all off now?!
+  ;  result=dialog_message(info_text,/question, $
+  ;  title='Batch input feasible - Start the Run ?',$
+  ;  dialog_parent=event.top)
+  ;  if(result eq 'No') then begin
+  ;    printf,tfile,' '
+  ;    printf,tfile,'User Decided NOT to make the run'
+  ;;;get state pointer to close up the widgets
+  ;;    widget_control,event.top,get_uvalue=pstate
+  ;;;clean up pointers
+  ;;    result=ptr_valid(pstate)
+  ;;    if (result) then ptr_free, pstate
+  ;;    widget_control,event.top,/destroy
+  ;    goto, out
+  ;  endif
+  endelse
+
   ;;get state pointer to close up the widgets
-  ;  widget_control,event.top,get_uvalue=pstate
+  ;widget_control,event.top,get_uvalue=pstate
   ;;clean up pointers
-  ;  result=ptr_valid(pstate)
-  ;  if (result) then ptr_free, pstate
-  ;  widget_control,event.top,/destroy
-  goto,out
-endif else begin
-  info_text=['Input script information checked',$
-    'There are '+strtrim(string(n_case,format='(i8)'),2)+' cases and all are feasible']
-  nlist=1
-  info_text=[info_text,' ',$
-    'OK to start off the batch run? (Yes/No)']
+  ;result=ptr_valid(pstate)
+  ;if (result) then ptr_free, pstate
+  ;widget_control,event.top,/destroy
+
+  ;Now everything is ready to run the cases of the batch run
+  in_batch=1b
+
+  T_start=systime(1)
+  run_stat=bytarr(n_case)
+  print,' '
   printf,tfile,''
-  printf,tfile,'********************************'
-  for j=0,nlist do begin
-    printf,tfile,info_text[j]
-  endfor
-  
-  ;now list the input information to the log file
-  printf,tfile,'********************************'
-  printf,tfile,'Run Information:'
-  printf,tfile,'n_case='+strtrim(string(n_case,format='(i8)'),2)
-  printf,tfile,'log file='+strtrim(log_file,2)
-  printf,tfile,'Run Description: '+strtrim(run_desc,2)
-  printf,tfile,' '
-  printf,tfile,'Data file List:'
-  for j=0,n_case-1 do begin
-    printf,tfile,strtrim(datafile[j],2)
-  endfor
-  printf,tfile,' '
-  printf,tfile,'Ancillary file List:'
-  for j=0,n_case-1 do begin
-    printf,tfile,strtrim(ancfile[j],2)
-  endfor
-  printf,tfile,' '
-  printf,tfile,'Output Image List:'
-  for j=0,n_case-1 do begin
-    printf,tfile,strtrim(outfile[j],2)
-  endfor
-  printf,tfile,' '
-  printf,tfile,'Calibration Flag List=',calib
-  printf,tfile,' '
-  printf,tfile,'evi_az_n List=',evi_az_n
-  printf,tfile,' '
-  if (add_evi gt 0) then begin
-    printf,tfile,'Points for EVI base and top added for ALL output pt clouds'
-  endif else begin
-    printf,tfile,'Points for EVI base and top NOT added to output pt clouds'
-  endelse
-  printf,tfile,' '
-  if (save_zero_hits gt 0) then begin
-    printf,tfile,'Zero hits (pure gaps) saved for ALL output pt clouds'
-  endif else begin
-    printf,tfile,'Zero hits (pure gaps) NOT saved in output pt clouds'
-  endelse
-  flush, tfile
-  
-;;all ready so ask if the user really wants to start it all off now?!
-;  result=dialog_message(info_text,/question, $
-;  title='Batch input feasible - Start the Run ?',$
-;  dialog_parent=event.top)
-;  if(result eq 'No') then begin
-;    printf,tfile,' '
-;    printf,tfile,'User Decided NOT to make the run'
-;;;get state pointer to close up the widgets
-;;    widget_control,event.top,get_uvalue=pstate
-;;;clean up pointers
-;;    result=ptr_valid(pstate)
-;;    if (result) then ptr_free, pstate
-;;    widget_control,event.top,/destroy
-;    goto, out
-;  endif
-endelse
 
-;;get state pointer to close up the widgets
-;widget_control,event.top,get_uvalue=pstate
-;;clean up pointers
-;result=ptr_valid(pstate)
-;if (result) then ptr_free, pstate
-;widget_control,event.top,/destroy
+  for j_case=0,n_case-1 do begin
 
-;Now everything is ready to run the cases of the batch run
-in_batch=1b
+    case_add=strtrim(string(j_case+1),2)
+    print,'Starting Case '+case_add
+    printf,tfile,''
+    if (j_case eq 0) then printf,tfile,'********************************'
+    printf,tfile,'Case Number '+case_add
+    printf,tfile,''
+    printf,tfile,'Input File: '+strtrim(datafile[j_case],2)
+    flush, tfile
 
-T_start=systime(1)
-run_stat=bytarr(n_case)
-print,' '
-printf,tfile,''
+    ; This is where the processing guts go ****
 
-for j_case=0,n_case-1 do begin
+    cal_dat=calib[j_case]
+    infile=datafile[j_case]
+    anc_name=ancfile[j_case]
+    ; Open input and ancillary files
+    envi_open_file, infile, r_fid=fid,/no_realize
+    envi_open_file, anc_name, r_fid=ancillaryfile_fid,/no_realize
 
-  case_add=strtrim(string(j_case+1),2)
-  print,'Starting Case '+case_add
-  printf,tfile,''
-  if (j_case eq 0) then printf,tfile,'********************************'
-  printf,tfile,'Case Number '+case_add
-  printf,tfile,''
-  printf,tfile,'Input File: '+strtrim(datafile[j_case],2)
-  flush, tfile
-  
-  ; This is where the processing guts go ****
-  
-  cal_dat=calib[j_case]
-  infile=datafile[j_case]
-  anc_name=ancfile[j_case]
-  ; Open input and ancillary files
-  envi_open_file, infile, r_fid=fid,/no_realize
-  envi_open_file, anc_name, r_fid=ancillaryfile_fid,/no_realize
-  
-  ; Get the file dimensions etc
-  envi_file_query, fid, fname=infile, nb=nbands, nl=nlines, $
-    ns=nsamples, bnames=bnames, wl=range, data_type=dt
-  envi_file_query, ancillaryfile_fid, fname=anc_name, $
-    nb=nb_anc, nl=nl_anc, ns=ns_anc, $
-    data_type=anc_type, bnames=anc_bnames
-    
-  ;set up a base structure for the EVI headers
-  evi_headers={ $
-    f_base:f_base $
-    }
-  ;find all of the EVI headers in the hdr file as defined by FID
-  status=get_headers(fid,evi_headers)
-  
-  ; Get the scale factor from the Base_fix info.
-  ;scale_factor = ceil(max_val/184.0)
-  info = evi_headers.EVI_base_fix_info
-  match = -1
-  for i=0,n_elements(info)-1 do if (strmatch(info[i],'*scale*')) then match=i
-  if (match ge 0) then begin
-    sf = strsplit(info[match],'=',/extract)
-    scale_factor = float(sf[1])
-  endif else scale_factor = 1.0
-  
-  ;Get date and time of the acquisition
-  evi_date_time=''
-  match = -1
-  for i=0,n_elements(evi_headers.evi_scan_info)-1 do begin
-    if (strmatch(evi_headers.evi_scan_info[i],'*Data End Time*')) then match=i
-  endfor
-  if (match ge 0) then begin
-    sf = strsplit(evi_headers.evi_scan_info[match],'=',/extract)
-    evi_date_time = strtrim(strcompress(sf[1]),2)
-  endif else begin
-    evi_date_time = ''
-  endelse
-  evi_year=fix(strtrim(strmid(evi_date_time,strlen(evi_date_time)-4),2))
-  
-  ;Get the site description
-  evi_description_record=''
-  match = -1
-  for i=0,n_elements(evi_headers.evi_scan_info)-1 do begin
-    if (strmatch(evi_headers.evi_scan_info[i],'*Scan Description*')) then match=i
-  endfor
-  if (match ge 0) then begin
-    sf = strsplit(evi_headers.evi_scan_info[match],'=',/extract)
-    if (n_elements(sf) gt 1) then begin
-      evi_description_record = strtrim(sf[1],2)
+    ; Get the file dimensions etc
+    envi_file_query, fid, fname=infile, nb=nbands, nl=nlines, $
+      ns=nsamples, bnames=bnames, wl=range, data_type=dt
+    envi_file_query, ancillaryfile_fid, fname=anc_name, $
+      nb=nb_anc, nl=nl_anc, ns=ns_anc, $
+      data_type=anc_type, bnames=anc_bnames
+
+    ;set up a base structure for the EVI headers
+    evi_headers={ $
+      f_base:f_base $
+      }
+    ;find all of the EVI headers in the hdr file as defined by FID
+    status=get_headers(fid,evi_headers)
+
+    ; Get the scale factor from the Base_fix info.
+    ;scale_factor = ceil(max_val/184.0)
+    info = evi_headers.EVI_base_fix_info
+    match = -1
+    for i=0,n_elements(info)-1 do if (strmatch(info[i],'*scale*')) then match=i
+    if (match ge 0) then begin
+      sf = strsplit(info[match],'=',/extract)
+      scale_factor = float(sf[1])
+    endif else scale_factor = 1.0
+
+    ;Get date and time of the acquisition
+    evi_date_time=''
+    match = -1
+    for i=0,n_elements(evi_headers.evi_scan_info)-1 do begin
+      if (strmatch(evi_headers.evi_scan_info[i],'*Data End Time*')) then match=i
+    endfor
+    if (match ge 0) then begin
+      sf = strsplit(evi_headers.evi_scan_info[match],'=',/extract)
+      evi_date_time = strtrim(strcompress(sf[1]),2)
+    endif else begin
+      evi_date_time = ''
+    endelse
+    evi_year=fix(strtrim(strmid(evi_date_time,strlen(evi_date_time)-4),2))
+
+    ;Get the site description
+    evi_description_record=''
+    match = -1
+    for i=0,n_elements(evi_headers.evi_scan_info)-1 do begin
+      if (strmatch(evi_headers.evi_scan_info[i],'*Scan Description*')) then match=i
+    endfor
+    if (match ge 0) then begin
+      sf = strsplit(evi_headers.evi_scan_info[match],'=',/extract)
+      if (n_elements(sf) gt 1) then begin
+        evi_description_record = strtrim(sf[1],2)
+      endif else begin
+        evi_description_record = ''
+      endelse
     endif else begin
       evi_description_record = ''
     endelse
-  endif else begin
-    evi_description_record = ''
-  endelse
-  
-  ;Locate the EVI Height
-  EVI_Height=-1.0
-  match = -1
-  for i=0,n_elements(evi_headers.evi_scan_info)-1 do begin
-    if (strmatch(evi_headers.evi_scan_info[i],'*EVI Height*')) then match=i
-  endfor
-  if (match ge 0) then begin
-    sf = strsplit(evi_headers.evi_scan_info[match],'=',/extract)
-    EVI_Height = float(sf[1])
-  endif else begin
-    EVI_Height = -1.0
-  endelse
-  
-  ; Check if file is pfiltered
-  if (evi_headers.pfilter_present) then begin
-    pfiltered=1b
-  endif else pfiltered=0b
-  
-  evi_pointcloud_info=['Title=Point Cloud Information',$
-    'EVI run Date & Time='+strtrim(evi_date_time,2),$
-    'EVI run Description='+strtrim(evi_description_record,2),$
-    'EVI Height='+strtrim(string(evi_height,format='(f10.3)'),2) $
-    ]
-    
-  printf,tfile,'EVI run Date & Time='+strtrim(evi_date_time,2)
-  printf,tfile,'EVI run Description='+strtrim(evi_description_record,2)
-  printf,tfile,'EVI Height='+strtrim(string(evi_height,format='(f10.3)'),2)
-  flush,tfile
-  
-  ; Check if file has been projected
-  if (~evi_headers.proj_present) then begin
-    projected = 0b
-    projection_type='None'
-  endif else begin
-    projected = 1b
+
+    ;Locate the EVI Height
+    EVI_Height=-1.0
     match = -1
-    for i=0,n_elements(evi_headers.evi_projection_info)-1 do begin
-      if (strmatch(evi_headers.evi_projection_info[i],'*type*')) then match=i
+    for i=0,n_elements(evi_headers.evi_scan_info)-1 do begin
+      if (strmatch(evi_headers.evi_scan_info[i],'*EVI Height*')) then match=i
     endfor
     if (match ge 0) then begin
-      sf = strsplit(evi_headers.evi_projection_info[match],'=',/extract)
-      Projection_Type = strtrim(sf[1],2)
+      sf = strsplit(evi_headers.evi_scan_info[match],'=',/extract)
+      EVI_Height = float(sf[1])
     endif else begin
-      Projection_Type='None'
+      EVI_Height = -1.0
     endelse
-  endelse
-  
-  ; Check if file is apparent reflectance
-  if (evi_headers.apprefl_present) then begin
-    app_refl=1b
-    cal_dat=0b
-  endif else app_refl=0b
-  
-  ;Read the beam divergence from the scan info
-  match = -1
-  for i=0,n_elements(evi_headers.evi_scan_info)-1 do begin
-    if (strmatch(evi_headers.evi_scan_info[i],'*Beam Divergence*')) then match=i
-  endfor
-  if (match ge 0) then begin
-    sf = strtrim(strcompress(strsplit(evi_headers.evi_scan_info[match],'=',/extract)),2)
-    t = strsplit(sf[1],' ',/extract)
-    evi_div = float(t[0])
-  endif else begin
-    evi_div = -1.0
-  endelse
-  
-  ;now get the filter name
-  match = -1
-  for i=0,n_elements(evi_headers.evi_base_fix_info)-1 do if (strmatch(evi_headers.evi_base_fix_info[i],'*Filter*')) then match=i
-  if (match ge 0) then begin
-    f_name = strsplit(evi_headers.evi_base_fix_info[match],'=',/extract)
-    filter_name = f_name[1]
-  endif else filter_name = 'unknown'
-  
-  ; Get the casing max from the Base_fix info.
-  info = evi_headers.evi_base_fix_info
-  match = -1
-  for i=0,n_elements(info)-1 do if (strmatch(info[i],'*casing_max*')) then match=i
-  if (match ge 0) then begin
-    sf = strsplit(info[match],'=',/extract)
-    CM = float(sf[1])
-  endif else begin
-    print,'casing_max not found in evi header'
-    print,'Output calibration may be invalid!'
-    CM=132.77
-    case filter_name of
-      'ND0' : F_casing = 0.6858
-      'ND015' : F_casing = 1.0
-      'ND030' : F_casing = 2.25
-      'ND1' : F_casing = 8.0
-    else : F_casing = 3.4
-    endcase
-    CM=CM/F_casing
-  endelse
-  F_casing=132.77/CM
-  ;
-  ;the calibration is now known for 2006 and 2009 but others
-  ;are interpolated or extrapolated
-  if (evi_year le 2006) then begin
-    cal=270948.2
-    rpow = 2.1543
-    Rtef = 8.7148
-  endif else if (evi_year ge 2009) then begin
-    cal=273504.1
-    rpow = 2.2651
-    Rtef = 8.6975
-  endif else begin
-    cal=282696.2
-    rpow = 2.2464
-    Rtef = 8.7158
-  endelse
-  
-  printf,tfile,'EVI beam divergence='+strtrim(string(evi_div,format='(f10.3)'),2)
-  printf,tfile,'EVI casing factor='+strtrim(string(F_casing,format='(f10.3)'),2)
-  printf,tfile,'EVI calibration Const='+strtrim(string(cal,format='(f10.3)'),2)
-  printf,tfile,'EVI calibration range power='+strtrim(string(rpow,format='(f10.3)'),2)
-  printf,tfile,'EVI calibration Teff='+strtrim(string(Rtef,format='(f10.3)'),2)
-  printf,tfile,'EVI calibration Scale='+strtrim(string(scale_factor,format='(f10.3)'),2)
-  flush,tfile
-  
-  evi_pointcloud_info=[evi_pointcloud_info,$
-    'EVI beam divergence='+strtrim(string(evi_div,format='(f10.3)'),2),$
-    'EVI casing factor='+strtrim(string(F_casing,format='(f10.3)'),2),$
-    'EVI calibration Const='+strtrim(string(cal,format='(f10.3)'),2),$
-    'EVI calibration range power='+strtrim(string(rpow,format='(f10.3)'),2),$
-    'EVI calibration Teff='+strtrim(string(Rtef,format='(f10.3)'),2),$
-    'EVI calibration Scale='+strtrim(string(scale_factor,format='(f10.3)'),2) $
-    ]
-    
-  ;set up the calibration as far as possible
-  if (cal_dat) then begin
-    s_Factor=F_casing/(cal*scale_factor)
-    i_scale=1000.0
-    evi_cal=1b
-  endif else begin
-    s_Factor=1.0
-    i_scale=1.0
-    evi_cal=0b
-  endelse
-  
-  mask=bytarr(nsamples,nlines)
-  zenith=fltarr(nsamples,nlines)
-  azimuth=fltarr(nsamples,nlines)
-  
-  ; Get the Mask, Zenith, Azimuth from the ancillary file
-  dims = [-1, 0, nsamples-1, 0, nlines-1]
-  if (~projected) then begin
-    Mask = byte(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=6))
-    Zenith = float(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=7))/10.0
-    Azimuth = float(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=8))/10.0
-  endif else begin
-    mask = byte(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=3))
-    zenith = float(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=1))/10.0
-    azimuth = float(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=2))/10.0
-  endelse
-  envi_file_mng,id=ancillaryfile_fid,/remove
-  
-  ; now temporarily get wavelength from the filename
-  ; later need to add a header information of laser wavelength to the hdr file
-  ; the wavelength will be extracted from the header information.
-  if (strpos(evi_headers.f_base, '1064') ne -1) then begin
-    wavelength = 1064
-  endif
-  if (strpos(evi_headers.f_base, '1548') ne -1) then begin
-    wavelength = 1548
-  endif
-  ; Call routine to set up pulse model
-  dwel_pulse_model_dual, wavelength, i_val, t_val, r_val, p_range, p_time, pulse
-  i_val=i_val[[0,1,2,5,6]]
-  t_val=t_val[[0,1,2,5,6]]
-  r_val=r_val[[0,1,2,5,6]]
-  
-  ;S0 is a scale factor that relates the FWHM of the standard pulse and the mean FWHM of the data
-  ;it has been chosen to be best for data in between ND015 (maybe 30% saturated) and ND100 (no saturated)
-  ;
-  S0=1.06  ;best for all but ND100
-  
-  evi_pointcloud_info=[evi_pointcloud_info,$
-    'S0='+strtrim(string(s0,format='(f12.4)'),2) $
-    ]
-    
-  ; Resample pulse onto time base of data
-  w = where(range ge p_range[i_val[0]] and range le p_range[i_val[4]],numw)
-  base_range=range[w[0]:w[numw-1]]/S0
-  
-  print,'number of elements in base range=',n_elements(base_range)
-  p = interpol(pulse, p_range, base_range)
-  
-  value=min(abs(base_range-r_val[1]),min_ind)
-  value=min(abs(base_range-r_val[3]),max_ind)
-  
-  ; Make sure we aren't asking for elements beyond the end of pulse array
-  use_max_ind = max_ind < (n_elements(p)-1)
-  if (use_max_ind ne max_ind) then begin
-    printf, tfile, 'Requested pulse array range truncated to element ',+strtrim(use_max_ind,2)
-    printf, tfile, ' '
-    flush, tfile
-  endif
-  ; Subset the pulse array
-  max_ind=use_max_ind
-  p = p[min_ind:max_ind]
-  
-  ;options here are fixed for now
-  ;; change accordingly to DWEL scans based on empirical tests.
-  if (app_refl) then begin
-    if (pfiltered) then b_thresh=0.002 else b_thresh=0.005
-    i_scale=1000.0
-    evi_cal=1b
-  endif else begin
-    if (pfiltered) then b_thresh=25 else b_thresh=25
-    i_scale=1.0
-  ;  evi_cal=0b
-  endelse
-  ;evi_az_north=0.0
-  max_zen_ang=125.0
-  azimuth=azimuth-evi_az_n[j_case] ;EVI, rotation direction is clockwise, the same as the direction that true azimuth is count
-  ;azimuth=evi_az_n[j_case]-azimuth ;DWEL? rotation direction is counter-clockwise
-  pos=where(azimuth lt 0.0,npos)
-  if (npos gt 0) then azimuth[pos]=azimuth[pos]+360.0
-  pos=0b
-  pos=where(zenith gt max_zen_ang,num_zen)
-  if (num_zen gt 0) then begin
-    mask[pos]=0b
-  endif
-  pos=0b
-  pos_mask=where(Mask,num_mask)
-  max_zenith=max(zenith[pos_mask])
-  pos_mask=0b
-  
-  evi_pointcloud_info=[evi_pointcloud_info,$
-    'B_Thresh='+strtrim(string(b_thresh),2) $
-    ]
-    
-  ; ***********************
-  ; Get path and file name as separate strings
-    
-  last=strpos(infile,path_sep(),/reverse_search)
-  in_path=file_dirname(infile)
-  in_base=strtrim(strmid(infile,last+1,strlen(infile)-last-1),2)
-  
-  last=strpos(anc_name,path_sep(),/reverse_search)
-  anc_path = file_dirname(anc_name)
-  anc_base=strtrim(strmid(anc_name,last+1,strlen(anc_name)-last-1),2)
-  
-  ;Set up the metadata elements
-  
-  Processing_Date_Time=''
-  Run_Number=j_case+1
-  Description=evi_description_record
-  Input_Path=in_path
-  Input_File=in_base
-  Acquisition_Date_Time=Evi_Date_Time
-  Ancillary_Path=anc_path
-  Ancillary_File=anc_base
-  Projection=Projection_Type
-  EVI_Calibration=evi_cal
-  EVI_Height=EVI_Height
-  EVI_Az_North=evi_az_n[j_case]
-  Max_Zenith_Angle=Max_Zenith
-  Range_Step=abs(range[1]-range[0])
-  Threshold=b_thresh
-  Zero_Hit_Option=save_zero_hits
-  Add_EVI=Add_EVI
-  X_scale=1.0
-  Y_scale=1.0
-  Z_scale=1.0
-  X_offset=0.0
-  Y_offset=0.0
-  Z_offset=0.0
-  I_Scale=i_scale
-  Point_File_Path=''
-  Point_File_name=''
-  Zero_Hit_Number=0L
-  Shot_Hit_Number=0L
-  Total_Hit_Number=0L
-  Nrecs=0L
-  Max_X=0.0
-  Min_X=0.0
-  Max_Y=0.0
-  Min_Y=0.0
-  Max_Z=0.0
-  Min_Z=0.0
-  Min_Intensity=0.0
-  Max_Intensity=0.0
-  
-  ;***************
-  ;now set up structures and push onto the stack
-  
-  meta_data={ $
-    Processing_Date_Time:Processing_Date_Time,$
-    Run_Number:Run_Number,$
-    Description:Description,$
-    Input_Path:Input_Path,$
-    Input_File:Input_File,$
-    Acquisition_Date_Time:Acquisition_Date_Time,$
-    Ancillary_Path:Ancillary_Path,$
-    Ancillary_File:Ancillary_File,$
-    Projection:Projection,$
-    EVI_Calibration:EVI_Calibration,$
-    EVI_Height:EVI_Height,$
-    EVI_Az_North:EVI_Az_North,$
-    Max_Zenith_Angle:Max_Zenith_Angle,$
-    Range_Step:Range_Step,$
-    Threshold:Threshold,$
-    Zero_Hit_Option:Zero_Hit_Option,$
-    Add_EVI:Add_EVI,$
-    X_scale:X_scale,$
-    Y_scale:Y_scale,$
-    Z_scale:Z_scale,$
-    X_offset:X_offset,$
-    Y_offset:Y_offset,$
-    Z_offset:Z_offset,$
-    I_Scale:I_Scale,$
-    Point_File_Path:point_file_Path,$
-    Point_File_name:point_file_name,$
-    Zero_Hit_Number:Zero_Hit_Number,$
-    Shot_Hit_Number:Shot_Hit_Number,$
-    Total_Hit_Number:Total_Hit_Number,$
-    Nrecs:Nrecs,$
-    Max_X:Max_X,$
-    Min_X:Min_X,$
-    Max_Y:Max_Y,$
-    Min_Y:Min_Y,$
-    Max_Z:Max_Z,$
-    Min_Z:Min_Z,$
-    Min_Intensity:Min_Intensity,$
-    Max_Intensity:Max_Intensity $
-    }
-    
-  pb_meta=ptr_new(meta_data,/no_copy)
-  
-  out_file=strtrim(outfile[j_case],2)
-  n_base=strlen(out_file)
-  n_dot=strpos(out_file,'.',/reverse_search)
-  if((n_dot le 0) or (n_base-n_dot ne 4)) then begin
-    oi_name=out_file+'_pcinfo.img'
-  endif else begin
-    oi_name=strmid(out_file,0,n_dot)+'_pcinfo.img'
-  endelse
-  oi_name=strtrim(oi_name,2)
-  
-  ;see if the output image file exists & remove if it does!
-  if(file_test(oi_name)) then begin
-    fids=envi_get_file_ids()
-    if(fids[0] eq -1) then begin
-      file_delete, oi_name,/quiet
-      print,'old image file deleted'
-    endif else begin
-      for i=0,n_elements(fids)-1 do begin
-        envi_file_query,fids[i],fname=tname
-        if (strtrim(strlowcase(oi_name),2) eq $
-          strtrim(strlowcase(tname),2)) then begin
-          envi_file_mng,id=fids[i],/remove
-          print,'old image file removed from ENVI'
-        endif
-      endfor
-      file_delete, oi_name,/quiet
-      print,'old image file deleted'
-    endelse
-  endif
-  
-  base_stats={ $
-    fid:fid,$
-    outfile:out_file,$
-    oi_name:oi_name,$
-    range:range,$
-    mask:mask,$
-    zenith:zenith,$
-    azimuth:azimuth,$
-    cal_dat:cal_dat,$
-    evi_div:evi_div,$
-    rpow:rpow,$
-    Rtef:Rtef,$
-    s_Factor:s_Factor $
-    }
-    
-  pb_stats=ptr_new(base_stats,/no_copy)
-  pb_info=''
-  
-  ;Apply the point cloud processing
-  ;********************************************
-  err=0b
-  apply_ptcl_filter_batch_cmd, p, pb_stats, pb_meta, pb_info, error=err
-  ;********************************************
-  
-  if (err ne 0b) then begin
-    printf,tfile,'Error in point cloud processing at case='+strtrim(string(j_case+1,format='(i8)'),2)
-    printf,tfile,'Error called from apply_ptcl_filter'
+
+    ; Check if file is pfiltered
+    if (evi_headers.pfilter_present) then begin
+      pfiltered=1b
+    endif else pfiltered=0b
+
+    evi_pointcloud_info=['Title=Point Cloud Information',$
+      'EVI run Date & Time='+strtrim(evi_date_time,2),$
+      'EVI run Description='+strtrim(evi_description_record,2),$
+      'EVI Height='+strtrim(string(evi_height,format='(f10.3)'),2) $
+      ]
+
+    printf,tfile,'EVI run Date & Time='+strtrim(evi_date_time,2)
+    printf,tfile,'EVI run Description='+strtrim(evi_description_record,2)
+    printf,tfile,'EVI Height='+strtrim(string(evi_height,format='(f10.3)'),2)
     flush,tfile
-    print,'Error in point cloud processing at case='+strtrim(string(j_case+1,format='(i8)'),2)
-    print,'Error called from apply_ptcl_filter'
+
+    ; Check if file has been projected
+    if (~evi_headers.proj_present) then begin
+      projected = 0b
+      projection_type='None'
+    endif else begin
+      projected = 1b
+      match = -1
+      for i=0,n_elements(evi_headers.evi_projection_info)-1 do begin
+        if (strmatch(evi_headers.evi_projection_info[i],'*type*')) then match=i
+      endfor
+      if (match ge 0) then begin
+        sf = strsplit(evi_headers.evi_projection_info[match],'=',/extract)
+        Projection_Type = strtrim(sf[1],2)
+      endif else begin
+        Projection_Type='None'
+      endelse
+    endelse
+
+    ; Check if file is apparent reflectance
+    if (evi_headers.apprefl_present) then begin
+      app_refl=1b
+      cal_dat=0b
+    endif else app_refl=0b
+
+    ;Read the beam divergence from the scan info
+    match = -1
+    for i=0,n_elements(evi_headers.evi_scan_info)-1 do begin
+      if (strmatch(evi_headers.evi_scan_info[i],'*Beam Divergence*')) then match=i
+    endfor
+    if (match ge 0) then begin
+      sf = strtrim(strcompress(strsplit(evi_headers.evi_scan_info[match],'=',/extract)),2)
+      t = strsplit(sf[1],' ',/extract)
+      evi_div = float(t[0])
+    endif else begin
+      evi_div = -1.0
+    endelse
+
+    ;now get the filter name
+    match = -1
+    for i=0,n_elements(evi_headers.evi_base_fix_info)-1 do if (strmatch(evi_headers.evi_base_fix_info[i],'*Filter*')) then match=i
+    if (match ge 0) then begin
+      f_name = strsplit(evi_headers.evi_base_fix_info[match],'=',/extract)
+      filter_name = f_name[1]
+    endif else filter_name = 'unknown'
+
+    ; Get the casing max from the Base_fix info.
+    info = evi_headers.evi_base_fix_info
+    match = -1
+    for i=0,n_elements(info)-1 do if (strmatch(info[i],'*casing_max*')) then match=i
+    if (match ge 0) then begin
+      sf = strsplit(info[match],'=',/extract)
+      CM = float(sf[1])
+    endif else begin
+      print,'casing_max not found in evi header'
+      print,'Output calibration may be invalid!'
+      CM=132.77
+      case filter_name of
+        'ND0' : F_casing = 0.6858
+        'ND015' : F_casing = 1.0
+        'ND030' : F_casing = 2.25
+        'ND1' : F_casing = 8.0
+      else : F_casing = 3.4
+      endcase
+      CM=CM/F_casing
+    endelse
+    F_casing=132.77/CM
+    ;
+    ;the calibration is now known for 2006 and 2009 but others
+    ;are interpolated or extrapolated
+    if (evi_year le 2006) then begin
+      cal=270948.2
+      rpow = 2.1543
+      Rtef = 8.7148
+    endif else if (evi_year ge 2009) then begin
+      cal=273504.1
+      rpow = 2.2651
+      Rtef = 8.6975
+    endif else begin
+      cal=282696.2
+      rpow = 2.2464
+      Rtef = 8.7158
+    endelse
+
+    printf,tfile,'EVI beam divergence='+strtrim(string(evi_div,format='(f10.3)'),2)
+    printf,tfile,'EVI casing factor='+strtrim(string(F_casing,format='(f10.3)'),2)
+    printf,tfile,'EVI calibration Const='+strtrim(string(cal,format='(f10.3)'),2)
+    printf,tfile,'EVI calibration range power='+strtrim(string(rpow,format='(f10.3)'),2)
+    printf,tfile,'EVI calibration Teff='+strtrim(string(Rtef,format='(f10.3)'),2)
+    printf,tfile,'EVI calibration Scale='+strtrim(string(scale_factor,format='(f10.3)'),2)
+    flush,tfile
+
+    evi_pointcloud_info=[evi_pointcloud_info,$
+      'EVI beam divergence='+strtrim(string(evi_div,format='(f10.3)'),2),$
+      'EVI casing factor='+strtrim(string(F_casing,format='(f10.3)'),2),$
+      'EVI calibration Const='+strtrim(string(cal,format='(f10.3)'),2),$
+      'EVI calibration range power='+strtrim(string(rpow,format='(f10.3)'),2),$
+      'EVI calibration Teff='+strtrim(string(Rtef,format='(f10.3)'),2),$
+      'EVI calibration Scale='+strtrim(string(scale_factor,format='(f10.3)'),2) $
+      ]
+
+    ;set up the calibration as far as possible
+    if (cal_dat) then begin
+      s_Factor=F_casing/(cal*scale_factor)
+      i_scale=1000.0
+      evi_cal=1b
+    endif else begin
+      s_Factor=1.0
+      i_scale=1.0
+      evi_cal=0b
+    endelse
+
+    mask=bytarr(nsamples,nlines)
+    zenith=fltarr(nsamples,nlines)
+    azimuth=fltarr(nsamples,nlines)
+
+    ; Get the Mask, Zenith, Azimuth from the ancillary file
+    dims = [-1, 0, nsamples-1, 0, nlines-1]
+    if (~projected) then begin
+      Mask = byte(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=6))
+      Zenith = float(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=7))/10.0
+      Azimuth = float(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=8))/10.0
+    endif else begin
+      mask = byte(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=3))
+      zenith = float(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=1))/10.0
+      azimuth = float(envi_get_data(fid=ancillaryfile_fid, dims=dims,pos=2))/10.0
+    endelse
+    envi_file_mng,id=ancillaryfile_fid,/remove
+
+    ; now temporarily get wavelength from the filename
+    ; later need to add a header information of laser wavelength to the hdr file
+    ; the wavelength will be extracted from the header information.
+    if (strpos(evi_headers.f_base, '1064') ne -1) then begin
+      wavelength = 1064
+    endif
+    if (strpos(evi_headers.f_base, '1548') ne -1) then begin
+      wavelength = 1548
+    endif
+    ; Call routine to set up pulse model
+    dwel_pulse_model_dual, wavelength, i_val, t_val, r_val, p_range, p_time, pulse
+    i_val=i_val[[0,1,2,5,6]]
+    t_val=t_val[[0,1,2,5,6]]
+    r_val=r_val[[0,1,2,5,6]]
+
+    ;S0 is a scale factor that relates the FWHM of the standard pulse and the mean FWHM of the data
+    ;it has been chosen to be best for data in between ND015 (maybe 30% saturated) and ND100 (no saturated)
+    ;
+    S0=1.06  ;best for all but ND100
+
+    evi_pointcloud_info=[evi_pointcloud_info,$
+      'S0='+strtrim(string(s0,format='(f12.4)'),2) $
+      ]
+
+    ; Resample pulse onto time base of data
+    w = where(range ge p_range[i_val[0]] and range le p_range[i_val[4]],numw)
+    base_range=range[w[0]:w[numw-1]]/S0
+
+    print,'number of elements in base range=',n_elements(base_range)
+    p = interpol(pulse, p_range, base_range)
+
+    value=min(abs(base_range-r_val[1]),min_ind)
+    value=min(abs(base_range-r_val[3]),max_ind)
+
+    ; Make sure we aren't asking for elements beyond the end of pulse array
+    use_max_ind = max_ind < (n_elements(p)-1)
+    if (use_max_ind ne max_ind) then begin
+      printf, tfile, 'Requested pulse array range truncated to element ',+strtrim(use_max_ind,2)
+      printf, tfile, ' '
+      flush, tfile
+    endif
+    ; Subset the pulse array
+    max_ind=use_max_ind
+    p = p[min_ind:max_ind]
+
+    ;options here are fixed for now
+    ;; change accordingly to DWEL scans based on empirical tests.
+    if (app_refl) then begin
+      if (pfiltered) then b_thresh=0.002 else b_thresh=0.005
+      i_scale=1000.0
+      evi_cal=1b
+    endif else begin
+      if (pfiltered) then b_thresh=25 else b_thresh=25
+      i_scale=1.0
+    ;  evi_cal=0b
+    endelse
+    ;evi_az_north=0.0
+    max_zen_ang=125.0
+    azimuth=azimuth-evi_az_n[j_case] ;EVI, rotation direction is clockwise, the same as the direction that true azimuth is count
+    ;azimuth=evi_az_n[j_case]-azimuth ;DWEL? rotation direction is counter-clockwise
+    pos=where(azimuth lt 0.0,npos)
+    if (npos gt 0) then azimuth[pos]=azimuth[pos]+360.0
+    pos=0b
+    pos=where(zenith gt max_zen_ang,num_zen)
+    if (num_zen gt 0) then begin
+      mask[pos]=0b
+    endif
+    pos=0b
+    pos_mask=where(Mask,num_mask)
+    max_zenith=max(zenith[pos_mask])
+    pos_mask=0b
+
+    evi_pointcloud_info=[evi_pointcloud_info,$
+      'B_Thresh='+strtrim(string(b_thresh),2) $
+      ]
+
+    ; ***********************
+    ; Get path and file name as separate strings
+
+    last=strpos(infile,path_sep(),/reverse_search)
+    in_path=file_dirname(infile)
+    in_base=strtrim(strmid(infile,last+1,strlen(infile)-last-1),2)
+
+    last=strpos(anc_name,path_sep(),/reverse_search)
+    anc_path = file_dirname(anc_name)
+    anc_base=strtrim(strmid(anc_name,last+1,strlen(anc_name)-last-1),2)
+
+    ;Set up the metadata elements
+
+    Processing_Date_Time=''
+    Run_Number=j_case+1
+    Description=evi_description_record
+    Input_Path=in_path
+    Input_File=in_base
+    Acquisition_Date_Time=Evi_Date_Time
+    Ancillary_Path=anc_path
+    Ancillary_File=anc_base
+    Projection=Projection_Type
+    EVI_Calibration=evi_cal
+    EVI_Height=EVI_Height
+    EVI_Az_North=evi_az_n[j_case]
+    Max_Zenith_Angle=Max_Zenith
+    Range_Step=abs(range[1]-range[0])
+    Threshold=b_thresh
+    Zero_Hit_Option=save_zero_hits
+    Add_EVI=Add_EVI
+    X_scale=1.0
+    Y_scale=1.0
+    Z_scale=1.0
+    X_offset=0.0
+    Y_offset=0.0
+    Z_offset=0.0
+    I_Scale=i_scale
+    Point_File_Path=''
+    Point_File_name=''
+    Zero_Hit_Number=0L
+    Shot_Hit_Number=0L
+    Total_Hit_Number=0L
+    Nrecs=0L
+    Max_X=0.0
+    Min_X=0.0
+    Max_Y=0.0
+    Min_Y=0.0
+    Max_Z=0.0
+    Min_Z=0.0
+    Min_Intensity=0.0
+    Max_Intensity=0.0
+
+    ;***************
+    ;now set up structures and push onto the stack
+
+    meta_data={ $
+      Processing_Date_Time:Processing_Date_Time,$
+      Run_Number:Run_Number,$
+      Description:Description,$
+      Input_Path:Input_Path,$
+      Input_File:Input_File,$
+      Acquisition_Date_Time:Acquisition_Date_Time,$
+      Ancillary_Path:Ancillary_Path,$
+      Ancillary_File:Ancillary_File,$
+      Projection:Projection,$
+      EVI_Calibration:EVI_Calibration,$
+      EVI_Height:EVI_Height,$
+      EVI_Az_North:EVI_Az_North,$
+      Max_Zenith_Angle:Max_Zenith_Angle,$
+      Range_Step:Range_Step,$
+      Threshold:Threshold,$
+      Zero_Hit_Option:Zero_Hit_Option,$
+      Add_EVI:Add_EVI,$
+      X_scale:X_scale,$
+      Y_scale:Y_scale,$
+      Z_scale:Z_scale,$
+      X_offset:X_offset,$
+      Y_offset:Y_offset,$
+      Z_offset:Z_offset,$
+      I_Scale:I_Scale,$
+      Point_File_Path:point_file_Path,$
+      Point_File_name:point_file_name,$
+      Zero_Hit_Number:Zero_Hit_Number,$
+      Shot_Hit_Number:Shot_Hit_Number,$
+      Total_Hit_Number:Total_Hit_Number,$
+      Nrecs:Nrecs,$
+      Max_X:Max_X,$
+      Min_X:Min_X,$
+      Max_Y:Max_Y,$
+      Min_Y:Min_Y,$
+      Max_Z:Max_Z,$
+      Min_Z:Min_Z,$
+      Min_Intensity:Min_Intensity,$
+      Max_Intensity:Max_Intensity $
+      }
+
+    pb_meta=ptr_new(meta_data,/no_copy)
+
+    out_file=strtrim(outfile[j_case],2)
+    n_base=strlen(out_file)
+    n_dot=strpos(out_file,'.',/reverse_search)
+    if((n_dot le 0) or (n_base-n_dot ne 4)) then begin
+      oi_name=out_file+'_pcinfo.img'
+    endif else begin
+      oi_name=strmid(out_file,0,n_dot)+'_pcinfo.img'
+    endelse
+    oi_name=strtrim(oi_name,2)
+
+    ;see if the output image file exists & remove if it does!
+    if(file_test(oi_name)) then begin
+      fids=envi_get_file_ids()
+      if(fids[0] eq -1) then begin
+        file_delete, oi_name,/quiet
+        print,'old image file deleted'
+      endif else begin
+        for i=0,n_elements(fids)-1 do begin
+          envi_file_query,fids[i],fname=tname
+          if (strtrim(strlowcase(oi_name),2) eq $
+            strtrim(strlowcase(tname),2)) then begin
+            envi_file_mng,id=fids[i],/remove
+            print,'old image file removed from ENVI'
+          endif
+        endfor
+        file_delete, oi_name,/quiet
+        print,'old image file deleted'
+      endelse
+    endif
+
+    base_stats={ $
+      fid:fid,$
+      outfile:out_file,$
+      oi_name:oi_name,$
+      range:range,$
+      mask:mask,$
+      zenith:zenith,$
+      azimuth:azimuth,$
+      cal_dat:cal_dat,$
+      evi_div:evi_div,$
+      rpow:rpow,$
+      Rtef:Rtef,$
+      s_Factor:s_Factor $
+      }
+
+    pb_stats=ptr_new(base_stats,/no_copy)
+    pb_info=''
+
+    ;Apply the point cloud processing
+    ;********************************************
+    err=0b
+    apply_ptcl_filter_batch_cmd, p, pb_stats, pb_meta, pb_info, error=err
+    ;********************************************
+
+    if (err ne 0b) then begin
+      printf,tfile,'Error in point cloud processing at case='+strtrim(string(j_case+1,format='(i8)'),2)
+      printf,tfile,'Error called from apply_ptcl_filter'
+      flush,tfile
+      print,'Error in point cloud processing at case='+strtrim(string(j_case+1,format='(i8)'),2)
+      print,'Error called from apply_ptcl_filter'
+      ptr_free,pb_stats
+      ptr_free,pb_meta
+      goto,out
+    endif
+
+    evi_pointcloud_info=[evi_pointcloud_info,pb_info]
+    pb_info=''
+    evi_pointcloud_info=[evi_pointcloud_info,$
+      'PointCloud Info File='+strtrim(oi_name,2),$
+      'Output PointCloud File='+strtrim(out_file,2) $
+      ]
+
+    tname=(*pb_stats).oi_name
+    ;write out header for info image
+    descrip='Info image for Point Cloud '+strtrim(out_file,2)
+    bnames=['Nhits','Total d','Total d0','Total I','Total I2','Mean_Range*100','Zenith*10','Azimuth*10','Residual','Gap','Mask']
+    envi_setup_head,fname=tname,ns=nsamples,nl=nlines,nb=11,$
+      xstart=0,ystart=0,$
+      data_type=2, interleave=0, bnames=bnames, $
+      descrip=descrip, /write
+
+    envi_open_file,(*pb_stats).oi_name,r_fid=anc_fid,/no_interactive_query,/no_realize
+    ;write out the previous header records
+    status=put_headers(anc_fid,evi_headers)
+    envi_assign_header_value, fid=anc_fid, keyword='EVI_pointcloud_info', $
+      value=evi_pointcloud_info
+
+    envi_write_file_header, anc_fid
+    envi_file_mng,id=anc_fid,/remove
+    anc_fid=0b
+
     ptr_free,pb_stats
     ptr_free,pb_meta
-    goto,out
-  endif
-  
-  evi_pointcloud_info=[evi_pointcloud_info,pb_info]
-  pb_info=''
-  evi_pointcloud_info=[evi_pointcloud_info,$
-    'PointCloud Info File='+strtrim(oi_name,2),$
-    'Output PointCloud File='+strtrim(out_file,2) $
-    ]
-    
-  tname=(*pb_stats).oi_name
-  ;write out header for info image
-  descrip='Info image for Point Cloud '+strtrim(out_file,2)
-  bnames=['Nhits','Total d','Total d0','Total I','Total I2','Mean_Range*100','Zenith*10','Azimuth*10','Residual','Gap','Mask']
-  envi_setup_head,fname=tname,ns=nsamples,nl=nlines,nb=11,$
-    xstart=0,ystart=0,$
-    data_type=2, interleave=0, bnames=bnames, $
-    descrip=descrip, /write
-    
-  envi_open_file,(*pb_stats).oi_name,r_fid=anc_fid,/no_interactive_query,/no_realize
-  ;write out the previous header records
-  status=put_headers(anc_fid,evi_headers)
-  envi_assign_header_value, fid=anc_fid, keyword='EVI_pointcloud_info', $
-    value=evi_pointcloud_info
-    
-  envi_write_file_header, anc_fid
-  envi_file_mng,id=anc_fid,/remove
-  anc_fid=0b
-  
-  ptr_free,pb_stats
-  ptr_free,pb_meta
-  
-  ; **************
-  ; Remove all remaining file handles from ENVI
-  envi_file_mng, id=ancillaryfile_fid, /remove
-  envi_file_mng, id=fid, /remove
-  ancillaryfile_fid=0b
-  fid=0b
-  if(ptr_valid(pb_stats)) then ptr_free,pb_stats
-  if(ptr_valid(pb_meta)) then ptr_free,pb_meta
-  if(ptr_valid(p_stat)) then ptr_free,p_stat
-  pb_stats=0b
-  pb_meta=0b
-  p_stat=0b
-  ; **************
-  print,'Completed point_cloud for case '+strtrim(string(j_case+1,format='(i8)'),2)
-  print,''
-  
-  printf,tfile,'Completed point_cloud for case '+strtrim(string(j_case+1,format='(i8)'),2)
-  printf,tfile,'Output File: '+strtrim(outfile[j_case],2)
-  printf,tfile,' '
-  printf,tfile,'*************************************'
-  printf,tfile,' '
-  flush, tfile
-  ;Here is the end of the input file Loop!!!!!
+
+    ; **************
+    ; Remove all remaining file handles from ENVI
+    envi_file_mng, id=ancillaryfile_fid, /remove
+    envi_file_mng, id=fid, /remove
+    ancillaryfile_fid=0b
+    fid=0b
+    if(ptr_valid(pb_stats)) then ptr_free,pb_stats
+    if(ptr_valid(pb_meta)) then ptr_free,pb_meta
+    if(ptr_valid(p_stat)) then ptr_free,p_stat
+    pb_stats=0b
+    pb_meta=0b
+    p_stat=0b
+    ; **************
+    print,'Completed point_cloud for case '+strtrim(string(j_case+1,format='(i8)'),2)
+    print,''
+
+    printf,tfile,'Completed point_cloud for case '+strtrim(string(j_case+1,format='(i8)'),2)
+    printf,tfile,'Output File: '+strtrim(outfile[j_case],2)
+    printf,tfile,' '
+    printf,tfile,'*************************************'
+    printf,tfile,' '
+    flush, tfile
+    ;Here is the end of the input file Loop!!!!!
   endfor
   
   T_end=systime(1)
