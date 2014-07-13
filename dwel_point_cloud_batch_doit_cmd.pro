@@ -1005,14 +1005,14 @@ iprint=0L
       bsm2=shift(dr,-2)
       test1 = (bs1 gt 0.0001 and bs2 gt 0.0001)
       testm1 = (bsm1 lt -0.0001 and bsm2 lt -0.0001)
-      test = (d2r lt -0.01) and (r gt 0.1)
+      test = (d2r lt -0.01) ; and (r gt 0.1) ; remove the r thresholding here, DWEL's r threshold can't be as large as 0.1
       peaks = where(((test) and (test1 and testm1)), nump)
-      nump_new=nump
+      
       ;; DWEL, remove peaks with intensity lower than b_thresh
       tmpind = where(temp[peaks] GE b_thresh, tmpcount)
       IF tmpcount GT 0 THEN BEGIN 
          peaks = peaks[tmpind]
-         newp_new=tmpcount
+         nump=tmpcount
       ENDIF 
       ;; DWEL, check if the peak is just the secondary peak of a
       ;; return pulse. Search a preceding peak within a given range,
@@ -1020,6 +1020,28 @@ iprint=0L
       ;;peak is stronger than this calculated peak, then there is a
       ;;real return pulse. Otherwise this candidate peak is just the
       ;;secondary peak of the preceding peak. 
+      if nump gt 0 then begin
+         newpeaks = make_array(dimension=size(peaks, /dimensions), type=size(peaks, /type))
+         newpeaks[0] = peaks[0]
+         nump_new = 1
+         if (nump gt 1) then begin
+            for k = 1, nump-1 do begin
+               ;; first see if there is a preceding peak within a certain
+               ;; distance
+               if peaks[k] - peaks[k-1] lt 20 then begin
+                  ;; 0.1838 below is the ratio of secondary peak to the
+                  ;; primary peak. 
+                  if (t[peaks[k]] - t[peaks[k-1]]*0.1838) ge 3*11*0.1838 then begin
+                     newpeaks[nump_new] = peaks[k]
+                     nump_new = nump_new + 1
+                  endif 
+               endif 
+            endfor 
+         endif
+      endif
+      
+       
+      nump_new=nump
       
       ph=(*pb_stats).azimuth[j,i]
       th=(*pb_stats).zenith[j,i]
