@@ -899,6 +899,19 @@ accumn=0.0d0
 accumd=0.0d0
 iprint=0L
 
+  sample_interval = 0.5 ;; unit: ns
+  ;; create a Gaussian filter. 
+  ;; the FWHM of outgoing pulse, ns
+  outgoing_fwhm = 5.1
+  ;; get a normalized Gaussian filter (integral is one)
+  outgoing_sigma = outgoing_fwhm / (2 * sqrt(2*alog(2)))
+  pulse_half_range = outgoing_fwhm * sqrt(alog(0.001)/alog(0.5)) / 2.0
+  gp_half_len = fix(pulse_half_range / sample_interval)
+  tmpx = (indgen(2*gp_half_len+1) - gp_half_len) * sample_interval
+  tmpy = 1.0 / (outgoing_sigma*sqrt(2*!pi)) * exp(-1*tmpx*tmpx/(2*outgoing_sigma^2))
+  gaussian_pulse = fltarr(1, size(tmpy, /n_elements))
+  gaussian_pulse[0, *] = tmpy
+  gp_len = size(gaussian_pulse, /n_elements)
 ; Loop through each line, calculate B and apply filter.
 ; Write to output file.
   for i=0,nlines-1 do begin
@@ -927,6 +940,12 @@ iprint=0L
 ;Pad data to allow convolution to the ends of the original array
 ;note using mean in padding areas
       temp=float(reform(line[j,*]))
+      ;; use a Gaussian filter to reduce the noise in DWEL waveforms.
+      t=[replicate(mean(temp[0:19]),gp_Len),temp,replicate(mean(temp[nbands-20:nbands-1]),gp_len)]
+      c = convol(t, gaussian_pulse)
+      temp = c[gp_len:gp_len+nbands-1]
+      c = 0b
+
       t=[replicate(mean(temp[0:19]),num_pad),temp,replicate(mean(temp[nbands-20:nbands-1]),num_pad)]
       c = convol(t,ppad,pnorm)
       dc=deriv(c)
@@ -940,38 +959,44 @@ iprint=0L
         d2b[pos_r] = 0.0
       endif
 
-;check for areas of noise
-      bs1 = shift(b,1)
-      bsm1 = shift(b,-1)
-      test1 = (bs1 ge b_thresh)
-      testm1 = (bsm1 ge b_thresh)
-      test = (b ge b_thresh)
-      noise = where(~(test and (test1 or testm1)), nump)
-      if (nump gt 0) then begin
-        b[noise] = 0.0
-        db[noise]=0.0
-        d2b[noise]=0.0
-      endif
+;; because DWEL pulse has both double peaks and one trough, i.e. real
+;; signal passes zero level. This thresholding could throw away real
+;;data and thus not working for DWEL here.
+;; ;check for areas of noise
+;;       bs1 = shift(b,1)
+;;       bsm1 = shift(b,-1)
+;;       test1 = (bs1 ge b_thresh)
+;;       testm1 = (bsm1 ge b_thresh)
+;;       test = (b ge b_thresh)
+;;       noise = where(~(test and (test1 or testm1)), nump)
+;;       if (nump gt 0) then begin
+;;         b[noise] = 0.0
+;;         db[noise]=0.0
+;;         d2b[noise]=0.0
+;;       endif
 
 ;get moving average value variance to compute correlation
       temp = sqrt(float(smooth(t^2,num_pad)))
       temp = temp[num_pad:num_pad+nbands-1]
       t = t[num_pad:num_pad+nbands-1]
-      w = where(temp lt b_thresh, nw, compl=fok, ncompl=nfok)
-      if (nw gt 0) then begin
-        r[w] = 0.0
-        dr[w]=0.0
-        d2r[w]=0.0
-        if (nfok gt 0) then begin
-          r[fok] = b[fok]*psum/temp[fok]
-          dr[fok] = db[fok]*psum/temp[fok]
-          d2r[fok] = d2b[fok]*psum/temp[fok]
-        endif
-      endif else begin
-        r = b*psum/temp
-        dr=db*psum/temp
-        d2r=d2b*psum/temp
-      endelse
+      ;; w = where(temp lt b_thresh, nw, compl=fok, ncompl=nfok)
+     ;;  if (nw gt 0) then begin
+     ;;    r[w] = 0.0
+     ;;    dr[w]=0.0
+     ;;    d2r[w]=0.0
+     ;;    if (nfok gt 0) then begin
+     ;;      r[fok] = b[fok]*psum/temp[fok]
+     ;;      dr[fok] = db[fok]*psum/temp[fok]
+     ;;      d2r[fok] = d2b[fok]*psum/temp[fok]
+     ;;    endif
+     ;;  endif else begin
+     ;;    r = b*psum/temp
+     ;;    dr=db*psum/temp
+     ;;    d2r=d2b*psum/temp
+     ;; ENDELSE
+      r = b*psum/temp
+      dr=db*psum/temp
+      d2r=d2b*psum/temp
 
 ; Check neighbourhoods of derivative and second derivative of correlation for peaks
       bs1 = shift(dr,1)
@@ -983,6 +1008,19 @@ iprint=0L
       test = (d2r lt -0.01) and (r gt 0.1)
       peaks = where(((test) and (test1 and testm1)), nump)
       nump_new=nump
+      ;; DWEL, remove peaks with intensity lower than b_thresh
+      tmpind = where(temp[peaks] GE b_thresh, tmpcount)
+      IF tmpcount GT 0 THEN BEGIN 
+         peaks = peaks[tmpind]
+         newp_new=tmpcount
+      ENDIF 
+      ;; DWEL, check if the peak is just the secondary peak of a
+      ;; return pulse. Search a preceding peak within a given range,
+      ;;calculate its amplitude of secondary peak. If the candidate
+      ;;peak is stronger than this calculated peak, then there is a
+      ;;real return pulse. Otherwise this candidate peak is just the
+      ;;secondary peak of the preceding peak. 
+      
       ph=(*pb_stats).azimuth[j,i]
       th=(*pb_stats).zenith[j,i]
       offset=0s
@@ -2428,12 +2466,13 @@ evi_pointcloud_info=[evi_pointcloud_info,$
   p = p[min_ind:max_ind]
 
 ;options here are fixed for now
+;; change accordingly to DWEL scans based on empirical tests. 
 if (app_refl) then begin
   if (pfiltered) then b_thresh=0.002 else b_thresh=0.005
   i_scale=1000.0
   evi_cal=1b
 endif else begin
-  if (pfiltered) then b_thresh=3.8 else b_thresh=9.5
+  if (pfiltered) then b_thresh=25 else b_thresh=25
   i_scale=1.0
 ;  evi_cal=0b
 endelse

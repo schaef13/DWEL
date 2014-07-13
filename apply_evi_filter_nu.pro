@@ -183,10 +183,23 @@ pro apply_evi_filter_nu, fid, p, outfile, b_thresh, r_thresh, $
     ;; also meet criteria 1 and 2
     db = b - shift(b, 0, 1)
     dr = r - shift(r, 0, 1)
-    index_bpeak = (shift(db, 0, 1) GT 0) AND (shift(db, 0, -1) LE 0)
-    index_btrough = (shift(db, 0, 1) LE 0) AND (shift(db, 0, -1) GT 0)
-    index_rpeak = (shift(dr, 0, 1) GT 0) AND (shift(dr, 0, -1) LE 0)
-    index_rtrough = (shift(dr, 0, 1) LE 0) AND (shift(dr, 0, -1) GT 0)
+    deriv_search_window = 5
+    index_bpeak = shift(db, 0, -1) LE 0
+    index_btrough = shift(db, 0, -1) GT 0
+    index_rpeak = shift(dr, 0, -1) LE 0
+    index_rtrough = shift(dr, 0, -1) GT 0
+    FOR dsw = -1*deriv_search_window, -2 DO BEGIN
+       index_bpeak = index_bpeak AND (shift(db, 0, dsw) LE 0)
+       index_btrough = index_btrough AND (shift(db, 0, dsw) GT 0)
+       index_rpeak = index_rpeak AND (shift(dr, 0, dsw) LE 0)
+       index_rtrough = index_rtrough AND (shift(dr, 0, dsw) GT 0)
+    ENDFOR
+    FOR dsw = 1, deriv_search_window DO BEGIN
+       index_bpeak = index_bpeak AND (shift(db, 0, dsw) GT 0)
+       index_btrough = index_btrough AND (shift(db, 0, dsw) LE 0)
+       index_rpeak = index_rpeak AND (shift(dr, 0, dsw) GT 0)
+       index_rtrough = index_rtrough AND (shift(dr, 0, dsw) LE 0)
+    ENDFOR
     index_bloc = (index_bpeak AND (b GE b_thresh)) OR (index_btrough AND (b LE -1*b_thresh))
     index_rloc = (index_rpeak AND (r GE r_thresh)) OR (index_rtrough AND (r LE -1*r_thresh))
 ;;    index_bloc = (index_bpeak OR index_btrough) AND index_b
