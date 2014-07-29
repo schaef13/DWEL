@@ -448,7 +448,7 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolutio
   n_base=strlen(DWEL_AT_File)
   n_dot=strpos(DWEL_AT_File,'.',/reverse_search)
   if((n_dot le 0) or (n_base-n_dot ne 4)) then begin
-    outextra[j]=DWEL_AT_File+'_extrainfo.img'
+    outextra=DWEL_AT_File+'_extrainfo.img'
   endif else begin
     outextra=strmid(DWEL_AT_File,0,n_dot)+'_extrainfo.img'
   endelse
