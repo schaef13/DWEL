@@ -1,4 +1,4 @@
-; calculate the waveforms of the difference index and create an ENVI image cube. 
+; calculate the waveforms of the difference index and create an ENVI image cube.
 pro DWEL_Diff_Index_Cube, DataCubeFile_1064, AncFile_1064, DataCubeFile_1548, AncFile_1548, DiffIndexCubeFile, BandWindow, Scale
   ; open the ENVI image
   envi_open_file, DataCubeFile_1064, r_fid=infile_fid_1064, /no_realize
@@ -34,13 +34,13 @@ pro DWEL_Diff_Index_Cube, DataCubeFile_1064, AncFile_1064, DataCubeFile_1548, An
   endif
   
   tmplogic = strcmp(anc_bname_1064, 'Mask', /fold_case)
-  tmppos = where(tmplogic)  
+  tmppos = where(tmplogic)
   ; read the mask
   mask_1064 = envi_get_data(fid=ancfile_fid_1064, dims=anc_dims_1064, pos=tmppos[0])
   mask_1064 = byte(mask_1064)
   
   tmplogic = strcmp(anc_bname_1548, 'Mask', /fold_case)
-  tmppos = where(tmplogic)  
+  tmppos = where(tmplogic)
   ; read the mask
   mask_1548 = envi_get_data(fid=ancfile_fid_1548, dims=anc_dims_1548, pos=tmppos[0])
   mask_1548 = byte(mask_1548)
@@ -98,9 +98,9 @@ pro DWEL_Diff_Index_Cube, DataCubeFile_1064, AncFile_1064, DataCubeFile_1548, An
   descrip = '(1064-1548)/(1064+1548)'
   ; setup header info
   envi_setup_head,fname=out_name,ns=ns_out,nl=nl_out,nb=nb_out,$
-  data_type=out_type, interleave=ft_out, $
-  wl=wl_out, $
-  bnames=bname_out,descrip=descrip, $
-  zplot_titles=['Range (m)','Diff. Index'], $
-  /write,/open, r_fid=diffindex_ofid
+    data_type=out_type, interleave=ft_out, $
+    wl=wl_out, $
+    bnames=bname_out,descrip=descrip, $
+    zplot_titles=['Range (m)','Diff. Index'], $
+    /write,/open, r_fid=diffindex_ofid
 end

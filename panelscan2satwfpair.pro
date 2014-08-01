@@ -23,7 +23,7 @@ pro PanelScan2SatWfPair, PanelScanCubeFile, PanelScanAncFile, PanelBoundingBox, 
     interleave=anc_ftype, fname=anc_fname, dims=anc_dims, bname=anc_bname
     
   tmplogic = strcmp(anc_bname, 'Mask', /fold_case)
-  tmppos = where(tmplogic) 
+  tmppos = where(tmplogic)
   topmask = envi_get_data(dims=anc_dims, fid=anc_fid, pos=tmppos[0])
   topmask = byte(topmask)
   

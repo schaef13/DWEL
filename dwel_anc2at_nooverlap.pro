@@ -10,7 +10,7 @@ end
 
 ; Max_Zenith_Angle: in unit of degree
 ; output_resolution: in unit of mrad
-pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolution
+pro dwel_anc2at_nooverlap, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolution
 
   compile_opt idl2
   envi, /restore_base_save_files

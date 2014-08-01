@@ -1,6 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; correct scan encoder values (elevation encoder) according to the casing region.
-; cassing region of the scan to be corrected is input from a binary image where 1 is casing region. 
+; cassing region of the scan to be corrected is input from a binary image where 1 is casing region.
 ; the binary image of casing region has the same dimensions with the scan's ancillary image which provides
 ; the uncorrected scan encoder values
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -12,17 +12,17 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask
   envi_batch_init, /NO_STATUS_WINDOW
   
   envi_open_file, ancillaryfile_name, r_fid=ancillaryfile_fid, $
-                  /no_realize
+    /no_realize
   ;check if operation cancelled
   if (ancillaryfile_fid eq -1) then begin
-      print,strtrim('Error or No opening ancillary file',2)
-      print,'Ancillary File: '+strtrim(ancillaryfile_name,2)
-      return, NULL
+    print,strtrim('Error or No opening ancillary file',2)
+    print,'Ancillary File: '+strtrim(ancillaryfile_name,2)
+    return, NULL
   endif
   
   envi_file_query, ancillaryfile_fid, nb=nb_anc, nl=nl_anc, ns=ns_anc, data_type=type_anc, interleave=anc_ftype, $
     bnames=anc_bnames
-  
+    
   ; open the casing mask file
   envi_open_file, DWEL_Casing_Mask, r_fid=casingmask_fid, /no_realize
   if (casingmask_fid eq -1) then begin
@@ -73,10 +73,10 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask
   ;;   ;; NadirCorrection[0] = mean(ScanEncoderImg[CasingInd, 0])
   ;;   IF NadirCorrection[0] LT 0 THEN BEGIN
   ;;      NadirCorrection[0] = NadirCorrection[0] + 524288
-  ;;   ENDIF 
+  ;;   ENDIF
   ;;   IF NadirCorrection[0] GT 524288 THEN BEGIN
   ;;      NadirCorrection[0] = NadirCorrection[0] - 524288
-  ;;   ENDIF     
+  ;;   ENDIF
   ;; endelse
   ; correction of the remaining scan lines
   for l=0,nl_anc-1,1 do begin
@@ -91,20 +91,20 @@ function Get_ScanEncoderCorrection, ancillaryfile_name, DWEL_Casing_Mask
         ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], l] = $
           ScanEncoderImg[CasingInd[tmpind[0]+1]:CasingInd[NCasingPixel-1], l] + 524288
       endif
-   endif
+    endif
     NadirCorrection[l] = (min(ScanEncoderImg[CasingInd, l])+max(ScanEncoderImg[CasingInd, l])) / 2.0
     ;; NadirCorrection[l] = mean(ScanEncoderImg[CasingInd, l])
     IF NadirCorrection[l] LT 0 THEN BEGIN
-       NadirCorrection[l] = NadirCorrection[l] + 524288
-    ENDIF 
+      NadirCorrection[l] = NadirCorrection[l] + 524288
+    ENDIF
     IF NadirCorrection[l] GT 524288 THEN BEGIN
-       NadirCorrection[l] = NadirCorrection[l] - 524288
+      NadirCorrection[l] = NadirCorrection[l] - 524288
     ENDIF
   endfor
-
+  
   NadirCorrection = 0 - NadirCorrection
-
+  
   return, {NadirCorrection:NadirCorrection}
-
+  
 end
 

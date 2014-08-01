@@ -31,11 +31,11 @@ function apply_sat_fix, basefixed_satwf, pulse_model, p_troughloc, p_scdpeakloc,
 end
 
 pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
-;; DWELCubeFile: the full file name of the DWEL cube file
-;; Casing_Range: [min_zen_angle, max_zen_angle], the zenith angle
-;; range to extract casing returns and get Tzero and electronic
-;;background noise level. 
-
+  ;; DWELCubeFile: the full file name of the DWEL cube file
+  ;; Casing_Range: [min_zen_angle, max_zen_angle], the zenith angle
+  ;; range to extract casing returns and get Tzero and electronic
+  ;;background noise level.
+  
   compile_opt idl2
   envi, /restore_base_save_files
   envi_batch_init, /no_status_window
@@ -46,29 +46,29 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   fname=''
   o_name=''
   debug=1b
-
+  
   ;; distance from casing (edge of casing) to the true Tzero position
   casing2Tzero = 0.2 ; unit: meters
   ;; the FWHM of outgoing pulse, ns
   outgoing_fwhm = 5.1
   ;; the full width of outgoing pulse where intensity is below 0.01 of
   ;;maximum
-  pulse_width_range = 5.1 * sqrt(alog(0.01)/alog(0.5))  
+  pulse_width_range = 5.1 * sqrt(alog(0.01)/alog(0.5))
   
   ;First setup protective aunty-Catch to watch out for errors
   error_status=0
   catch, error_status
   if (error_status ne 0) then begin
-     catch,/cancel
-     help,/last,output=out
-     info_text=[strtrim(string('Catch trapped an Error !'),2),$
-                strtrim('Error Name : '+strtrim(!err_string,2),2),$
-                strtrim(string('Error Number: ',error_status,$
-                format='(a,i5)'),2),$
-                strtrim('Last Message: '+strtrim(out,2),2)]
-     print, strtrim('Error in DWEL_Baseline_Fix_Cmd', 2)
-     print, strtrim(info_text, 2)
-     goto, cleanup
+    catch,/cancel
+    help,/last,output=out
+    info_text=[strtrim(string('Catch trapped an Error !'),2),$
+      strtrim('Error Name : '+strtrim(!err_string,2),2),$
+      strtrim(string('Error Number: ',error_status,$
+      format='(a,i5)'),2),$
+      strtrim('Last Message: '+strtrim(out,2),2)]
+    print, strtrim('Error in DWEL_Baseline_Fix_Cmd', 2)
+    print, strtrim(info_text, 2)
+    goto, cleanup
   endif
   
   ;clean up any fids which are no longer where they were!
@@ -80,7 +80,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   c2=c/2.0
   
   ;Setup of the ND here is no actual of use for DWEL data since DWEL does NOT use ND anymore
-  ;It's just to fake a EVI file so that the DWEL file can go through the current EVI programs.  
+  ;It's just to fake a EVI file so that the DWEL file can go through the current EVI programs.
   ;set current estimates for the ND filter factors
   ;this should be set up better with an instrument data base - one day
   ND_Nam=strarr(11)
@@ -92,24 +92,24 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   envi_open_file, DWELCubeFile, r_fid=infile_fid,/no_realize
   
   if (infile_fid eq -1) then begin
-      print,strtrim('Error opening input file',2)
-      print,'Input File: '+strtrim(DWELCubeFile,2)
-      goto, cleanup
+    print,strtrim('Error opening input file',2)
+    print,'Input File: '+strtrim(DWELCubeFile,2)
+    goto, cleanup
   endif
   
   envi_file_query, infile_fid, ns=ns, nl=nl, nb=nb, wl=wl, $
     xstart=xstart, ystart=ystart, data_type=type, $
     interleave=ftype, fname=fname, dims=dims
-  
+    
   x_range=[dims[1],dims[2]]
   y_range=[dims[3],dims[4]]
   
   ;set the type of file
   ft_nam='Unknown'
   case ftype of
-  0: ft_nam='BSQ'
-  1: ft_nam='BIL'
-  2: ft_nam='BIP'
+    0: ft_nam='BSQ'
+    1: ft_nam='BIL'
+    2: ft_nam='BIP'
   endcase
   
   ;get path and evi_file name as separate strings
@@ -127,37 +127,37 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   
   if(not file_test(ancillaryfile_name)) then begin
     message_text=[ $
-    'Default ancillary file is not present',$
-    'default name: '+strtrim(ancillaryfile_name,2)$
-    ]
+      'Default ancillary file is not present',$
+      'default name: '+strtrim(ancillaryfile_name,2)$
+      ]
     print, message_text
     GOTO, cleanup
   endif
   
   envi_open_file, ancillaryfile_name, r_fid=ancillaryfile_fid, $
-                  /no_realize
+    /no_realize
   ;check if operation cancelled
   if (ancillaryfile_fid eq -1) then begin
-      print,strtrim('Error or No opening ancillary file',2)
-      print,'Ancillary File: '+strtrim(ancillaryfile_name,2)
-      goto, cleanup
+    print,strtrim('Error or No opening ancillary file',2)
+    print,'Ancillary File: '+strtrim(ancillaryfile_name,2)
+    goto, cleanup
   endif
   
   envi_file_query, ancillaryfile_fid, nb=nb_anc, nl=nl_anc, ns=ns_anc, data_type=type_anc
   
   if ((nl_anc ne nl) or (ns_anc ne ns) or (nb_anc lt 3)) then begin
-      envi_file_mng,id=ancillaryfile_fid,/remove
-      print,strtrim('Ancillary Data File does NOT conform with current EVI Cube !',2)
-      print,'Input File: '+strtrim(DWELCubeFile,2)
-      print,'Ancillary File: '+strtrim(ancillaryfile_name,2)
-      goto, cleanup
+    envi_file_mng,id=ancillaryfile_fid,/remove
+    print,strtrim('Ancillary Data File does NOT conform with current EVI Cube !',2)
+    print,'Input File: '+strtrim(DWELCubeFile,2)
+    print,'Ancillary File: '+strtrim(ancillaryfile_name,2)
+    goto, cleanup
   endif
   
   ;now get the EVI headers that are present
   ;set up a base structure for the EVI headers
   evi_headers={ $
-       f_base:f_base $
-       }
+    f_base:f_base $
+  }
   
   ;find all of the EVI headers in the hdr file as defined by FID
   status=get_headers(infile_fid,evi_headers)
@@ -204,7 +204,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   ;ratio of casing peak to outgoing peak
   casing_outgoing_factor=0.026172
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+  
   ;also scale
   scale=10.0
   ;also encoder zero zenith
@@ -219,7 +219,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     k=strpos(text,'=')
     l=strpos(text,'smp/ns')
     print,'extract=',strtrim(strmid(text,k+1,l-k-1),2)
-  ;  reads,strtrim(strmid(text,k+1,l-k-1),2),var2
+    ;  reads,strtrim(strmid(text,k+1,l-k-1),2),var2
     var2=float(strtrim(strmid(text,k+1,l-k-1),2))
     if (var2 gt 0.0) then begin
       srate=var2
@@ -250,29 +250,29 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     endif
     if (strpos(evi_headers.f_base, '1548') ne -1) then begin
       wavelength = 1548
-   ENDIF
- ENDIF ELSE BEGIN
+    ENDIF
+  ENDIF ELSE BEGIN
     match = -1
     info = DWEL_Adaptation
     for i=0,n_elements(info)-1 do BEGIN
-       if (strmatch(info[i],'*Wavelength*', /fold_case)) then match=i
-    ENDFOR 
+      if (strmatch(info[i],'*Wavelength*', /fold_case)) then match=i
+    ENDFOR
     IF match GE 0 THEN BEGIN
-       text=strtrim(info[match],2)
-       print,'text=',text
-       k=strpos(text,'=')
-       print,'extract=',strtrim(strmid(text,k+1,4),2)
-       wavelength=float(strtrim(strmid(text,k+1,4),2))
+      text=strtrim(info[match],2)
+      print,'text=',text
+      k=strpos(text,'=')
+      print,'extract=',strtrim(strmid(text,k+1,4),2)
+      wavelength=float(strtrim(strmid(text,k+1,4),2))
     ENDIF ELSE BEGIN
-       if (strpos(evi_headers.f_base, '1064') ne -1) then begin
-          wavelength = 1064
-       endif
-       if (strpos(evi_headers.f_base, '1548') ne -1) then begin
-          wavelength = 1548
-       ENDIF
-    ENDELSE 
- ENDELSE
-
+      if (strpos(evi_headers.f_base, '1064') ne -1) then begin
+        wavelength = 1064
+      endif
+      if (strpos(evi_headers.f_base, '1548') ne -1) then begin
+        wavelength = 1548
+      ENDIF
+    ENDELSE
+  ENDELSE
+  
   envi_file_mng, id=ancillaryfile_fid,/remove
   
   ;compute the mask from the ancillary file
@@ -281,7 +281,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   m = byte(anc_data[*,*,6])
   if (max(m) gt 1b) then begin
     w = where(m lt 255, nbad)
-  ;Create the binary mask
+    ;Create the binary mask
     m = replicate(1b,ns,nl)
     if (nbad gt 0) then m[w] = 0b
   endif
@@ -328,17 +328,17 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   
   ;============================================
   ;get sat fix output file name
-    if((n_dot le 0) or (n_base-n_dot ne 4)) then begin
-      out_satfix_name=fname+'_nu_basefix_satfix.img'
-    endif else begin
-      out_satfix_name=strmid(fname,0,n_dot)+'_nu_basefix_satfix.img'
-    endelse
+  if((n_dot le 0) or (n_base-n_dot ne 4)) then begin
+    out_satfix_name=fname+'_nu_basefix_satfix.img'
+  endif else begin
+    out_satfix_name=strmid(fname,0,n_dot)+'_nu_basefix_satfix.img'
+  endelse
   ;============================================
   
   out_name=o_name
-    
+  
   ;; ; read the mean waveform of marked casing area from an ascii file
-  ;; ; get the initial T0 from this mean waveform 
+  ;; ; get the initial T0 from this mean waveform
   ;; CasingMeanWf = Get_AsciiWf(AsciiCasingMeanWfFile)
   ;; p_time = CasingMeanWf.wf_x
   ;; pulse = CasingMeanWf.wf_y
@@ -349,11 +349,11 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   ;; baseline = SkyMeanWf.wf_y
   
   ;; get mean pulse and baseline from the given casing area designated
-  ;;by the zenith angles. 
+  ;;by the zenith angles.
   sum = dblarr(nb)
   sum2 = dblarr(nb)
   n = 0
-  for i=0L,nl-1L do BEGIN     
+  for i=0L,nl-1L do BEGIN
     index=where((mask_all[*,i] ne 0) and (zeniths[*,i] ge Casing_Range[0] and zeniths[*,i] LE Casing_Range[1]), count)
     if (count gt 0L) then begin
       data = envi_get_slice(fid=infile_fid, line=i, /bil)
@@ -363,46 +363,46 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
       sum = sum + total(d, 1, /double)
       sum2 = sum2 + total(d^2, 1,/double) ; sum of square waveform over the casing area in this scan line, still a vector
     endif else BEGIN
-       
+    
     endelse
     index=0b
     data=0b
     d=0b
- ENDFOR
+  ENDFOR
   ; initial time from current data cube before baseline fix
-  time = wl 
+  time = wl
   p_time = time
   pulse = sum / double(n)
   sig = sqrt((sum2 / double(n) - pulse^2)*double(n)/double(n-1))
   tmpmax = max(pulse, tmppos)
-  print, 'Initial Tzero before baseline fix = ', time[tmppos], ' ns'  
+  print, 'Initial Tzero before baseline fix = ', time[tmppos], ' ns'
   baseline = dblarr(nb)
   tmpind = where(time LT time[tmppos] - pulse_width_range/2.0, count)
   IF count GT 0 THEN BEGIN
-     baseline[tmpind] = pulse[tmpind]
-  ENDIF 
+    baseline[tmpind] = pulse[tmpind]
+  ENDIF
   tmpind = where(time GT time[tmppos] + 5*pulse_width_range, count)
   IF count GT 0 THEN BEGIN
-     baseline[where(time GE time[tmppos] - pulse_width_range/2.0)] = total(pulse[tmpind])/double(count)
+    baseline[where(time GE time[tmppos] - pulse_width_range/2.0)] = total(pulse[tmpind])/double(count)
   ENDIF ELSE BEGIN
-     baseline[where(time GE time[tmppos] - pulse_width_range/2.0)] = pulse[nb-1]
-  ENDELSE 
+    baseline[where(time GE time[tmppos] - pulse_width_range/2.0)] = pulse[nb-1]
+  ENDELSE
   
   pulse = pulse - baseline
   
-  CasingMeanWfMax = max(pulse, Tzero_I) 
+  CasingMeanWfMax = max(pulse, Tzero_I)
   Tzero=time[Tzero_I]
   print,'Initial Tzero after baseline fix = ',Tzero,' ns'
-
+  
   ;; interpolate peak location
   istat = peak_int(time[[Tzero_I-1, Tzero_I, Tzero_I+1]], pulse[[Tzero_I-1, Tzero_I, Tzero_I+1]], time_int, pulse_int, offset)
   Tzero = time_int
   print, 'Initial Tzero after intepolation = ', Tzero, ' ns'
-
-  delta= -casing2Tzero/c2 ; 0.2 meter is about the distance between the rotating mirror and the base. This is an old measurement and needs be updated. 
+  
+  delta= -casing2Tzero/c2 ; 0.2 meter is about the distance between the rotating mirror and the base. This is an old measurement and needs be updated.
   print,'delta=',delta, ' ns'
   print,''
-
+  
   Tzero=Tzero+delta
   print,'Shifted Tzero',Tzero, ' ns'
   
@@ -421,27 +421,27 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   
   EVI_base_fix_info=strarr(20)
   EVI_base_fix_info=[$
-  'Descr=EVI New Base Fix Settings with casing power',$
-  'Pulse='+'Pulse_Model',$
-  'Comment=Tzero is the time at which the output peak occurs',$
-  'Tzero='+strtrim(string(Tzero,format='(f10.3)'),2),$
-  'srate='+strtrim(string(srate,format='(f10.2)'),2),$
-  'ND_Filter='+strtrim(string(ND_Filter,format='(i6)'),2),$
-  'Filter_Name='+strtrim(ND_Nam[ND_Filter],2),$
-  'Nref='+strtrim(string(nref,format='(i10)'),2),$
-  'scale='+strtrim(string(scale,format='(f10.2)'),2),$
-  'Low='+strtrim(string(low,format='(f10.2)'),2),$
-  'High='+strtrim(string(high,format='(f10.2)'),2),$
-  'enc_zero_zenith='+strtrim(string(enc_zero_zenith,format='(f10.2)'),2),$
-  'delta(ns)='+strtrim(string(delta,format='(f10.4)'),2),$
-  'casing_max='+strtrim(string(data_max,format='(f10.3)'),2),$
-  'casing_sig='+strtrim(string(data_sig,format='(f10.3)'),2),$
-  'Casing_CV(%)='+strtrim(string(cv,format='(f10.2)'),2),$
-  'casing_fwhm(nsec)='+strtrim(string(casing_fwhm,format='(f10.4)'),2),$
-  'casing_fwhm(m)='+strtrim(string(casing_fwhm*c2,format='(f10.4)'),2),$
-  'model_fwhm(nsec)='+strtrim(string(model_fwhm,format='(f10.4)'),2),$
-  'model_fwhm(m)='+strtrim(string(model_fwhm*c2,format='(f10.4)'),2) $
-  ]
+    'Descr=EVI New Base Fix Settings with casing power',$
+    'Pulse='+'Pulse_Model',$
+    'Comment=Tzero is the time at which the output peak occurs',$
+    'Tzero='+strtrim(string(Tzero,format='(f10.3)'),2),$
+    'srate='+strtrim(string(srate,format='(f10.2)'),2),$
+    'ND_Filter='+strtrim(string(ND_Filter,format='(i6)'),2),$
+    'Filter_Name='+strtrim(ND_Nam[ND_Filter],2),$
+    'Nref='+strtrim(string(nref,format='(i10)'),2),$
+    'scale='+strtrim(string(scale,format='(f10.2)'),2),$
+    'Low='+strtrim(string(low,format='(f10.2)'),2),$
+    'High='+strtrim(string(high,format='(f10.2)'),2),$
+    'enc_zero_zenith='+strtrim(string(enc_zero_zenith,format='(f10.2)'),2),$
+    'delta(ns)='+strtrim(string(delta,format='(f10.4)'),2),$
+    'casing_max='+strtrim(string(data_max,format='(f10.3)'),2),$
+    'casing_sig='+strtrim(string(data_sig,format='(f10.3)'),2),$
+    'Casing_CV(%)='+strtrim(string(cv,format='(f10.2)'),2),$
+    'casing_fwhm(nsec)='+strtrim(string(casing_fwhm,format='(f10.4)'),2),$
+    'casing_fwhm(m)='+strtrim(string(casing_fwhm*c2,format='(f10.4)'),2),$
+    'model_fwhm(nsec)='+strtrim(string(model_fwhm,format='(f10.4)'),2),$
+    'model_fwhm(m)='+strtrim(string(model_fwhm*c2,format='(f10.4)'),2) $
+    ]
   EVI_base_fix_info=strtrim(EVI_base_fix_info,2)
   
   ;=====================================================================
@@ -478,7 +478,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   ;Set up the tiling
   tile_id=envi_init_tile(infile_fid,band_pos,num_tiles=num_tiles,$
     interleave=ft_out,xs=x_range[0],xe=x_range[1],ys=y_range[0],ye=y_range[1])
-  
+    
   ;check that tiling and dimensions match
   if (num_tiles ne nl_out) then begin
     print, strtrim('Number of Tiles is unexpected', 2)
@@ -502,8 +502,8 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   
   ;set up some things outside the loop
   info_text=[strtrim(string('Processing Cancelled'),2),$
-             strtrim('Exiting EVI Base and Sat fixing',2)]
-  
+    strtrim('Exiting EVI Base and Sat fixing',2)]
+    
   ;do the processing over the tiles
   ;BIL Tile
   ;zero=fltarr(ns_out,nb_out)
@@ -522,14 +522,14 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   if(npos_r le 0) then begin
     print,'bad range, npos_r=',npos_r
   endif
-  fln=1.0/float(npos_r)  
+  fln=1.0/float(npos_r)
   
   DWEL_pulse_model_dual, wavelength, i_val, t_val, r_val, p_range, p_time, pulse
   p_troughloc = i_val[3]
   p_scdpeakloc = i_val[4]
   
   for i=0, num_tiles-1 do begin
-  ;first get the data tile
+    ;first get the data tile
     data=envi_get_tile(tile_id,i)
     pos_z=where(mask_all[*,i] eq 0,count_z)
     temp=float(data)
@@ -550,7 +550,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     endif
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     if (count_z gt 0L) then begin
-       temp[pos_z,*]=0.0
+      temp[pos_z,*]=0.0
     endif
     
     satfixeddata = temp
@@ -569,13 +569,13 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     endif
     ;============================================
     
-  ;round if integer else set back in data
+    ;round if integer else set back in data
     if (type lt 4 or type gt 9) then begin
       data=fix(round(scale*temp), type=2)
     endif else begin
       data=scale*temp
     endelse
-  ;write out the resulting tile
+    ;write out the resulting tile
     writeu,ofile,data
     mean_image[*,i]=fln*total(data[*,pos_pos],2)
     max_image[*,i]=float(max(data[*,pos_pos],DIMENSION=2))
@@ -587,23 +587,23 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     endif else begin
       satfixeddata=scale*satfixeddata
     endelse
-  ;write out the resulting tile
+    ;write out the resulting tile
     writeu,osatfile,satfixeddata
     sat_mean_image[*,i]=fln*total(satfixeddata[*,pos_pos],2)
     sat_max_image[*,i]=float(max(satfixeddata[*,pos_pos],DIMENSION=2))
     ;=================================================
     
-;;  ;update the odometer
-;;    envi_report_stat,wb_report,i,num_tiles,cancel=cancel
-  ;; ;act on cancel
-  ;;   if(cancel) then begin
-  ;;     result=dialog_message(info_text,$
-  ;;     title='EVI Base and Sat Fix cancelled');, $
-  ;;     ;dialog_parent=event.top)
-  ;;     envi_tile_done, tile_id
-  ;;     envi_report_init, base=wb_report,/finish
-  ;;     goto,cleanup
-  ;;   endif
+    ;;  ;update the odometer
+    ;;    envi_report_stat,wb_report,i,num_tiles,cancel=cancel
+    ;; ;act on cancel
+    ;;   if(cancel) then begin
+    ;;     result=dialog_message(info_text,$
+    ;;     title='EVI Base and Sat Fix cancelled');, $
+    ;;     ;dialog_parent=event.top)
+    ;;     envi_tile_done, tile_id
+    ;;     envi_report_init, base=wb_report,/finish
+    ;;     goto,cleanup
+    ;;   endif
     data=0
     satfixeddata = 0
     temp=0b
@@ -618,7 +618,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   
   ;clear up and complete the action
   envi_tile_done, tile_id
-;;  envi_report_init, base=wb_report,/finish
+  ;;  envi_report_init, base=wb_report,/finish
   free_lun, ofile,/force
   data=0
   temp=0b
@@ -637,19 +637,19 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   EVI_base_fix_info=[EVI_base_fix_info,'Base_Fixed_File='+out_base]
   
   envi_setup_head,fname=out_name,ns=ns_out,nl=nl_out,nb=nb_out,$
-  xstart=xstart+dims[1],ystart=ystart+dims[3],$
-  data_type=out_type, interleave=ft_out, $
-  wl=wl_range, inherit=inherit, $
-  bnames=band_names,descrip=descrip, $
-  zplot_titles=['Range (m)','Intensity'], $
-  /write,/open, r_fid=out_fid
-  
+    xstart=xstart+dims[1],ystart=ystart+dims[3],$
+    data_type=out_type, interleave=ft_out, $
+    wl=wl_range, inherit=inherit, $
+    bnames=band_names,descrip=descrip, $
+    zplot_titles=['Range (m)','Intensity'], $
+    /write,/open, r_fid=out_fid
+    
   ;write out the previous header records
   status=put_headers(out_fid,evi_headers)
   ;
   ;write the new header(s) into the HDR file
   envi_assign_header_value, fid=out_fid, keyword='EVI_base_fix_info', $
-      value=EVI_base_fix_info
+    value=EVI_base_fix_info
   envi_write_file_header, out_fid
   
   ;===================================================
@@ -676,8 +676,8 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   text_err=0
   openw, ofile, ancfile,/get_lun,error=text_err
   if (text_err ne 0) then begin
-     print, strtrim('Halting evi_baseline_fix', 2)
-     print, strtrim(['Error opening output file '+strtrim(ancname,2)], 2)
+    print, strtrim('Halting evi_baseline_fix', 2)
+    print, strtrim(['Error opening output file '+strtrim(ancname,2)], 2)
     goto, cleanup
   endif
   
@@ -709,7 +709,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     /write, /open, r_fid=anc_fid, $
     bnames=['Non Triggers','Sun Sensor','Scan Encoder','Rotary Encoder', $
     'Laser Power','Waveform Mean','Mask','Zenith','Azimuth']
-  
+    
   ;write out the previous header records
   status=put_headers(anc_fid,evi_headers)
   ;
@@ -719,7 +719,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     keyword='DWEL_Adaptation', $
     value=DWEL_Adaptation
   envi_assign_header_value, fid=anc_fid, keyword='EVI_base_fix_info', $
-      value=EVI_base_fix_info
+    value=EVI_base_fix_info
   envi_write_file_header, anc_fid
   
   ;=====================================================================
@@ -737,24 +737,24 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   print,ancfile
   ; Write saturation fixing parameters to header
   evi_sat_info = [$
-          'Title=Parameters for Saturation Fixing',$
-          'Pulse r0='+strtrim(0,2), $
-          'Pulse n='+strtrim(0,2), $
-          'Pulse rp='+strtrim(0,2), $
-          'Pulse W='+strtrim(0,2), $
-          'Pulse pos intercept='+strtrim(0,2), $
-          'Pulse pos slope='+strtrim(0,2), $
-          'Sat test value='+strtrim(0,2), $
-          'Sat test width='+strtrim(0,2), $
-          'Sat width test height='+strtrim(0,2), $
-          'Sat test depth='+strtrim(0,2), $
-          'Saturated_(pixels)='+strtrim(0,2), $
-          'Saturated_(%)='+strtrim(string(0,format='(f14.2)'),2), $
-          'Stats_Format=(Num,Min,Max,Mean,RMS)',$
-          'Range_Stats=('+'0'+')',$
-          'Sat Fixed File='+out_base, $
-          'Sat Fix Stats File='+'NaN', $
-          'Updated Ancillary File='+anc_base]
+    'Title=Parameters for Saturation Fixing',$
+    'Pulse r0='+strtrim(0,2), $
+    'Pulse n='+strtrim(0,2), $
+    'Pulse rp='+strtrim(0,2), $
+    'Pulse W='+strtrim(0,2), $
+    'Pulse pos intercept='+strtrim(0,2), $
+    'Pulse pos slope='+strtrim(0,2), $
+    'Sat test value='+strtrim(0,2), $
+    'Sat test width='+strtrim(0,2), $
+    'Sat width test height='+strtrim(0,2), $
+    'Sat test depth='+strtrim(0,2), $
+    'Saturated_(pixels)='+strtrim(0,2), $
+    'Saturated_(%)='+strtrim(string(0,format='(f14.2)'),2), $
+    'Stats_Format=(Num,Min,Max,Mean,RMS)',$
+    'Range_Stats=('+'0'+')',$
+    'Sat Fixed File='+out_base, $
+    'Sat Fix Stats File='+'NaN', $
+    'Updated Ancillary File='+anc_base]
   evi_sat_info=strtrim(evi_sat_info,2)
   
   evi_sat_info=[evi_sat_info,'Sat_Fixed_File='+out_base]
@@ -765,21 +765,21 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   band_names=band_names+strtrim(string(indgen(nb_out)+1),2)+'_satfix'
   
   envi_setup_head,fname=out_satfix_name,ns=ns_out,nl=nl_out,nb=nb_out,$
-  xstart=xstart+dims[1],ystart=ystart+dims[3],$
-  data_type=out_type, interleave=ft_out, $
-  wl=wl_range, inherit=inherit, $
-  bnames=band_names,descrip=descrip, $
-  zplot_titles=['Range (m)','Intensity'], $
-  /write,/open, r_fid=out_fid
-  
+    xstart=xstart+dims[1],ystart=ystart+dims[3],$
+    data_type=out_type, interleave=ft_out, $
+    wl=wl_range, inherit=inherit, $
+    bnames=band_names,descrip=descrip, $
+    zplot_titles=['Range (m)','Intensity'], $
+    /write,/open, r_fid=out_fid
+    
   ;write out the previous header records
   status=put_headers(out_fid,evi_headers)
   ;
   ;write the new header(s) into the HDR file
   envi_assign_header_value, fid=out_fid, keyword='EVI_base_fix_info', $
-      value=EVI_base_fix_info
+    value=EVI_base_fix_info
   envi_assign_header_value, fid=out_fid, keyword='evi_sat_info', $
-      value=evi_sat_info
+    value=evi_sat_info
   envi_write_file_header, out_fid
   
   ;===================================================
@@ -800,9 +800,9 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   text_err=0
   openw, ofile, ancfile,/get_lun,error=text_err
   if (text_err ne 0) then begin
-     print, strtrim('Halting evi_baseline_sat_fix', 2)
-     print, strtrim(['Error opening output file '+strtrim(ancname,2)], 2)
-     goto, cleanup
+    print, strtrim('Halting evi_baseline_sat_fix', 2)
+    print, strtrim(['Error opening output file '+strtrim(ancname,2)], 2)
+    goto, cleanup
   endif
   
   pos_pos=where(mask_all ne 0)
@@ -833,7 +833,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     /write, /open, r_fid=anc_fid, $
     bnames=['Non Triggers','Sun Sensor','Scan Encoder','Rotary Encoder', $
     'Laser Power','Waveform Mean','Mask','Zenith','Azimuth']
-  
+    
   ;write out the previous header records
   status=put_headers(anc_fid,evi_headers)
   ;
@@ -843,10 +843,10 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     keyword='DWEL_Adaptation', $
     value=DWEL_Adaptation
   envi_assign_header_value, fid=anc_fid, keyword='EVI_base_fix_info', $
-      value=EVI_base_fix_info
+    value=EVI_base_fix_info
   envi_assign_header_value, fid=anc_fid, keyword='evi_sat_info', $
-      value=evi_sat_info
-  envi_write_file_header, anc_fid  
+    value=evi_sat_info
+  envi_write_file_header, anc_fid
   ;=====================================================================
   ;=====================================================================
   

@@ -2,14 +2,14 @@ pro FilterRangeMask, oldRangeMask, ancfile, newRangeMask
   compile_opt idl2
   envi, /restore_base_save_files
   envi_batch_init, /no_status_window
-
+  
   ;open the old range mask file
   envi_open_file, oldRangeMask, r_fid=infile_fid,/no_realize
   
   if (infile_fid eq -1) then begin
-      print,strtrim('Error opening input mask file',2)
-      print,'Input File: '+strtrim(oldRangeMask,2)
-      return
+    print,strtrim('Error opening input mask file',2)
+    print,'Input File: '+strtrim(oldRangeMask,2)
+    return
   endif
   
   envi_file_query, infile_fid, ns=ns, nl=nl, nb=nb, $
@@ -23,28 +23,28 @@ pro FilterRangeMask, oldRangeMask, ancfile, newRangeMask
   endif
   
   mask = envi_get_data(dims=dims, fid=infile_fid, pos=0)
-;;  maskopen = morph_open(mask, [1,1,1,1,1,1,1,1,1,1,1])
+  ;;  maskopen = morph_open(mask, [1,1,1,1,1,1,1,1,1,1,1])
   maskopen = morph_open(mask, [1,1,1])
   maskopenclose = morph_close(maskopen, [1,1,1])
   
   envi_open_file, ancfile, r_fid=anc_fid, /no_realize
   if (anc_fid eq -1) then begin
-      print,strtrim('Error opening input ancillary file',2)
-      print,'Input File: '+strtrim(ancfile,2)
-      return
+    print,strtrim('Error opening input ancillary file',2)
+    print,'Input File: '+strtrim(ancfile,2)
+    return
   endif
-
+  
   basicmask = byte(envi_get_data(dims=dims, fid=anc_fid, pos=6))
   
   newmask = byte(maskopenclose) * basicmask
   
   openw, out_fid, newRangeMask, /get_lun
   if (out_fid eq -1) then begin
-      print,strtrim('Error making output mask file',2)
-      print,'Output File: '+strtrim(newRangeMask,2)
-      return
+    print,strtrim('Error making output mask file',2)
+    print,'Output File: '+strtrim(newRangeMask,2)
+    return
   endif
-
+  
   writeu, out_fid, (newmask)
   
   ; set up header for output filtered image file
@@ -54,7 +54,7 @@ pro FilterRangeMask, oldRangeMask, ancfile, newRangeMask
     interleave=0, $
     bname = 'Range mask after opening and closing', $
     /write
-  
+    
   close, out_fid, infile_fid, anc_fid
-   
+  
 end
