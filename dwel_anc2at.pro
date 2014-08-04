@@ -9,9 +9,11 @@ pro dwel_val_block
 end
 
 ; Max_Zenith_Angle: in unit of degree
+; overlap: azimuth range of overlapping area, in unit of degree
 ; output_resolution: in unit of mrad
-pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolution
-
+pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, $
+  output_resolution, Overlap=overlap
+  
   compile_opt idl2
   envi, /restore_base_save_files
   envi_batch_init, /no_status_window
@@ -33,13 +35,14 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolutio
   
   envi_open_file, DWEL_Anc_File,r_fid=anc_fid,/no_interactive_query,/no_realize
   if (anc_fid eq -1) then begin
-    print,'Processing stopped! Error opening ancillary data file '+strtrim(DWEL_Anc_File,2)
+    print,'Processing stopped! Error opening ancillary data file ' + $
+      strtrim(DWEL_Anc_File,2) 
     goto, cleanup
   endif
   
   ;get the input image dimensions and other info
-  envi_file_query, anc_fid, ns=Nshots, nl=Nscans, nb=nb_anc, $
-    data_type=type, file_type=ftype, dims=dims
+  envi_file_query, anc_fid, ns=Nshots, nl=Nscans, nb=nb_anc, data_type=type, $
+    file_type=ftype, dims=dims
     
   samples=Nshots
   lines=Nscans
@@ -137,12 +140,67 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolutio
   
   ;get encoder positions!
   ShotZen=fltarr(Nshots,Nscans)
-  ShotAZim=fltarr(Nshots,Nscans)
+  ShotAzim=fltarr(Nshots,Nscans)
   ShotZen=float(envi_get_data(fid=anc_fid,dims=dims,pos=2))
-  ShotAZim=float(envi_get_data(fid=anc_fid,dims=dims,pos=3))
+  ShotAzim=float(envi_get_data(fid=anc_fid,dims=dims,pos=3))
   
   envi_file_mng,id=anc_fid,/remove
   
+  ;; set the mask for no overlapping
+  ;; here we are using ENCODER values, NOT actual angular values. 
+  if n_elements(overlap) ne 0 or arg_present(overlap) then begin
+    ;; no overlap is set, remove overlapping areas. This is by default.
+    ;; set mask according to azimuth angles
+    ;; the last scan line to be included, its azimuth is calculated as following
+    ;;from the whole first line. This avoids the first pixel in the first line
+    ;;is an invalid pixel. 
+    tmpazim = lonarr(Nscans)
+    for i=0,Nscans-1 do begin
+      tmp = ShotAzim[where(Mask_all[*, i]), i]
+      tmpazim[i] = mean(tmp)
+    endfor 
+    ;; tmpazim = ShotAzim[where(Mask_all)]
+    ;; tmpazim = long(tmpazim) ;; convert the azimuth values to integer so that
+    ;; ;; unique function can act properly.
+    ;; tmpazim = tmpazim[uniq(tmpazim)]
+    ;; if n_elements(tmpazim) ne Nscans then begin
+    ;;   print, 'Azimuth values of scan lines are not expected'
+    ;;   return
+    ;; endif 
+    ;; tmpazim = reform(tmpazim, 2, Nscans)
+    ;; tmpazim = tmpazim[0, *]
+    tmpdiff = tmpazim[0:Nscans-2] - tmpazim[1:Nscans-1]
+    tmppos = where(tmpdiff lt -180.0, tmpcount)
+    while tmpcount gt 0 do begin
+      tmpazim = tmpazim[0:tmppos[0]] + 524288
+      tmpdiff = tmpazim[0:Nscans-2] - tmpazim[1:Nscans-1]
+      tmppos = where(tmpdiff lt -524288/2, tmpcount)
+    endwhile
+    ;; we've found that the azimuth encoders of the first few scan lines
+    ;; of a scan could be of no change possibly due to the inertial of the
+    ;;instrument rotation or lack of lock-in of rotary encoder. Thus here we
+    ;;retain the last 180 degrees of scan lines and discard the first few scan
+    ;;lines with possibly bad azimuth values. 
+
+    firstazim = tmpazim[Nscans-1] + 524288/2 + float(overlap)/360.0*524288
+    tmppos = where(tmpazim gt firstazim, tmpcount)
+    if tmpcount gt 0 then begin
+      Mask_all[*, 0:tmppos[tmpcount-1]] = 0
+    endif 
+
+    ;; lastazim = tmpazim[0] - 524288/2
+    ;; tmppos = where(tmpazim lt lastazim, tmpcount)
+    ;; if tmpcount gt 0 then begin
+    ;;   Mask_all[*, tmppos[0]:Nscans-1] = 0
+    ;; endif
+    
+
+    ;; tmpazim = ShotAzim[*, 0]
+    ;; tmpazim = tmpazim[Mask_all[*, 0]]
+    ;; tmpazim = tmpazim[uniq(tmpazim)]
+    ;; lastazim = tmpazim[0]
+  endif    
+
   ;set up a structure and push it onto the heap
   sav={ $
     Nshots:Nshots,$
@@ -164,10 +222,9 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolutio
   ;set the mask for angles outside range
   pos=where(Shotzen gt Max_Zenith_Angle,npos)
   print,'npos angles above max=',npos
-  
   if (npos gt 0) then Mask_all[pos]=0
-  pos=0b
-  
+  pos=0b  
+
   srate_set=0b
   ;set the default sampling rate
   match = -1
@@ -267,7 +324,7 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolutio
   h21=1.1*(h/2.0)
   h22=1.1*((!radeg*scan_step)/r2mr)/2.0
   h2=max([h21,h22])
-  print, 'projection step size: ', h2
+  print, 'projection step size: ', h2*2
   
   counter=0L
   Tot_Count=0L
@@ -277,7 +334,7 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolutio
   ;Now set up the pointer array to the cell data and all is ready
   
   p_list=make_array(nl_out,/ptr)
-  num_val=make_array(ns_out,nl_out,/integer)
+  num_val=make_array(ns_out,nl_out,/integer) ; number of shots in one projected pixel
   theta=make_array(ns_out,nl_out,/integer)
   phi=make_array(ns_out,nl_out,/integer)
   mask=make_array(ns_out,nl_out,/integer)+1s
@@ -332,7 +389,7 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolutio
         phi[j,i]=fix(round(10.0*ph))
       endfor
       if (total(reform(num_val[*,i])) gt 0) then begin
-        temp=sort(reform(pos_ind[1,*])) ; sort the pos_ind by column, the shot number/zenith
+        temp=sort(reform(pos_ind[1,*])) ; sort the pos_ind by pixel row, the azimuth locations.
         pos_ind=pos_ind[*,temp]
       endif
     endif else begin
@@ -406,7 +463,7 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolutio
     pos_nz=where(num_val[*,k] gt 0,n_pos)
     if (n_pos gt 0) then begin
       pos_ind=*(p_list[k])
-      kk=n_elements(reform(pos_ind[0,*]))
+      kk=n_elements(reform(pos_ind[0,*])) ; first column of pos_ind is the column of shots in original image.
       point=0L
       while (point lt kk) do begin
         lin=pos_ind[1,point]
@@ -417,7 +474,7 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, output_resolutio
           current=lin
         endif
         ;do something!
-        temp[pos_ind[2,point],*]=temp[pos_ind[2,point],*]+ $
+        temp[pos_ind[2,point],*] = temp[pos_ind[2,point],*] + $
           data[pos_ind[0,point],*]
         num_avg[pos_ind[2,point],k]=num_avg[pos_ind[2,point],k]+1L
         point=point+1L
