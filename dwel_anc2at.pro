@@ -149,7 +149,7 @@ pro dwel_anc2at, DWEL_Anc_File, DWEL_AT_File, Max_Zenith_Angle, $
   ;; set the mask for no overlapping
   ;; here we are using ENCODER values, NOT actual angular values. 
   if n_elements(overlap) ne 0 or arg_present(overlap) then begin
-    ;; no overlap is set, remove overlapping areas. This is by default.
+    ; by default, do NOT remove overlap and leave the scan as it is collected
     ;; set mask according to azimuth angles
     ;; the last scan line to be included, its azimuth is calculated as following
     ;;from the whole first line. This avoids the first pixel in the first line
