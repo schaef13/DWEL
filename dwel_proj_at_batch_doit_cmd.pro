@@ -1,5 +1,6 @@
 ;======================================================================
 pro val_block_cmd
+
   compile_opt idl2
   
   ;set a common block for some important constants
@@ -15,6 +16,7 @@ pro val_block_cmd
 end
 
 function get_project_at_script_cmd, script_file, p_stat
+
   compile_opt idl2
   
   ;Here we will select and open a script file to getr input files etc
@@ -80,390 +82,425 @@ function get_project_at_script_cmd, script_file, p_stat
   ;now see if there is a continuation of records in the one primary statement
   if (strmid(inbuf,strlen(inbuf)-1,1) eq '$') then begin
     accum=accum+strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
-  inbuf=accum
-  goto,reading
-endif else begin
-  if (accum ne '') then begin
-    inbuf=strtrim(accum+inbuf,2)
-  endif
-  accum=''
-endelse
-
-;now add the assembled record to the list
-if(incount le 0) then begin
-  scr_text=[inbuf]
-endif else begin
-  scr_text=[scr_text,inbuf]
-endelse
-incount=incount+1
-
-if (eof(inunit)) then begin
-  goto,all_read
-endif else begin
-  goto,reading
-endelse
-
-;all the records are now read in
-all_read:
-free_lun,inunit,/force
-
-if (incount ne n_elements(scr_text)) then begin
-  print,'Warning, read count and stored lines do not match'
-endif
-
-;set up some pointers
-records=strarr(10)
-records=['n_case','log_file','run_desc', $
-  'image','anc_name','outfile', $
-  'output_resolution', $
-  'max_zenith_angle', $
-  'exit_idl','delete_input']
-present=bytarr(10)
-rec_pos=intarr(10)
-script_type=strtrim(scr_text[0],2)
-
-if (strtrim(strlowcase(script_type),2) ne strtrim(strlowcase(script_type),2)) then begin
-  print, 'Warning! script type is not the same as run type'
-  print, 'run type=',run_type
-  print, 'script type=',script_type
-endif
-
-for j=0,incount-1 do begin
-  result=strpos(scr_text[j],'=')
-  if (result gt 0) then begin
-    test=strtrim(strlowcase(strmid(scr_text[j],0,result)),2)
-    pos=where(records eq test,npos)
-    if (npos eq 1) then begin
-      present[pos]=1
-      rec_pos[pos]=j
+    inbuf=accum
+    goto,reading
+  endif else begin
+    if (accum ne '') then begin
+      inbuf=strtrim(accum+inbuf,2)
     endif
+    accum=''
+  endelse
+
+  ;now add the assembled record to the list
+  if(incount le 0) then begin
+    scr_text=[inbuf]
+  endif else begin
+    scr_text=[scr_text,inbuf]
+  endelse
+  incount=incount+1
+
+  if (eof(inunit)) then begin
+    goto,all_read
+  endif else begin
+    goto,reading
+  endelse
+
+  ;all the records are now read in
+  all_read:
+  free_lun,inunit,/force
+
+  if (incount ne n_elements(scr_text)) then begin
+    print,'Warning, read count and stored lines do not match'
   endif
-endfor
 
-;next we need to extract the information from the records
-;first get n_case and check it - return if not present or zero!
-;then set up the arrays and then onto the others
+  ;set up some pointers
+  records=strarr(11)
+  records=['n_case','log_file','run_desc', $
+    'image','anc_name','outfile', $
+    'output_resolution', $
+    'max_zenith_angle', $
+    'exit_idl','delete_input', $
+    'overlap']
+  present=bytarr(11)
+  rec_pos=intarr(11)
+  script_type=strtrim(scr_text[0],2)
 
-;read n_case
-n_case_char=''
-if (not present[0]) then begin
-  print,'n_case not present in the input script file !'
-  status=4
-  goto,go_back
-endif else begin
-  result=strpos(scr_text[rec_pos[0]],'=')
-  if (result le 0) then begin
-    print,'No = in n_pos ... bad input?'
-    status=5
+  if (strtrim(strlowcase(script_type),2) ne strtrim(strlowcase(script_type),2)) then begin
+    print, 'Warning! script type is not the same as run type'
+    print, 'run type=',run_type
+    print, 'script type=',script_type
+  endif
+
+  for j=0,incount-1 do begin
+    result=strpos(scr_text[j],'=')
+    if (result gt 0) then begin
+      test=strtrim(strlowcase(strmid(scr_text[j],0,result)),2)
+      pos=where(records eq test,npos)
+      if (npos eq 1) then begin
+        present[pos]=1
+        rec_pos[pos]=j
+      endif
+    endif
+  endfor
+
+  ;next we need to extract the information from the records
+  ;first get n_case and check it - return if not present or zero!
+  ;then set up the arrays and then onto the others
+
+  ;read n_case
+  n_case_char=''
+  if (not present[0]) then begin
+    print,'n_case not present in the input script file !'
+    status=4
     goto,go_back
-  endif
-  n_case_char=strtrim(strmid(scr_text[rec_pos[0]],result+1),2)
-  reads,n_case_char,n_case,format='(i4)'
-endelse
+  endif else begin
+    result=strpos(scr_text[rec_pos[0]],'=')
+    if (result le 0) then begin
+      print,'No = in n_pos ... bad input?'
+      status=5
+      goto,go_back
+    endif
+    n_case_char=strtrim(strmid(scr_text[rec_pos[0]],result+1),2)
+    reads,n_case_char,n_case,format='(i4)'
+  endelse
 
-;test for zero n_case
-if (n_case le 0) then begin
-  print,'n_case is ZERO! Bad input'
-  status=6
-  goto,go_back
-endif
-
-;all is well so set up the arrays
-image=strarr(n_case)
-anc_name=strarr(n_case)
-outfile=strarr(n_case)
-output_resolution=fltarr(n_case)
-Max_Zenith_Angle=fltarr(n_case)
-
-;now the log file
-log_file=''
-if (present[1]) then begin
-  result=strpos(scr_text[rec_pos[1]],'=')
-  if (result le 0) then begin
-    print,'No = in log_file record ... bad input?'
-    status=5
-    goto,go_back
-  endif
-  log_file=strtrim(strmid(scr_text[rec_pos[1]],result+1),2)
-  if (strmid(log_file,0,1) eq "'") then begin
-    log_file=strtrim(strmid(log_file,1,strlen(log_file)-1),2)
-  endif
-  if (strmid(log_file,strlen(log_file)-1,1) eq "'") then begin
-    log_file=strtrim(strmid(log_file,0,strlen(log_file)-1),2)
-  endif
-endif
-
-;now the run_desc
-run_desc=''
-if (present[2]) then begin
-  result=strpos(scr_text[rec_pos[2]],'=')
-  if (result le 0) then begin
-    print,'No = in run_desc record ... bad input?'
-    status=5
-    goto,go_back
-  endif
-  run_desc=strtrim(strmid(scr_text[rec_pos[2]],result+1),2)
-  if (strmid(run_desc,0,1) eq "'") then begin
-    run_desc=strtrim(strmid(run_desc,1,strlen(run_desc)-1),2)
-  endif
-  if (strmid(run_desc,strlen(run_desc)-1,1) eq "'") then begin
-    run_desc=strtrim(strmid(run_desc,0,strlen(run_desc)-1),2)
-  endif
-endif
-
-;now the image(s)
-if (present[3]) then begin
-  result=strpos(scr_text[rec_pos[3]],'=')
-  if (result le 0) then begin
-    print,'No = in image list record ... bad input?'
-    status=5
-    goto,go_back
-  endif
-  inbuf=strtrim(strmid(scr_text[rec_pos[3]],result+1),2)
-  if (strmid(inbuf,0,1) eq '[') then begin
-    inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
-  endif
-  if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
-    inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
-  endif
-  image=strtrim(strsplit(inbuf,',',/extract),2)
-  if (n_elements(image) ne n_case) then begin
-    print,'Number of input images different from number of cases'
-    print,'n_case= ',n_case,' n_elements= ',n_elements(image)
+  ;test for zero n_case
+  if (n_case le 0) then begin
+    print,'n_case is ZERO! Bad input'
     status=6
     goto,go_back
   endif
-  for j=0,n_case-1 do begin
-    if (strmid(image[j],0,1) eq "'") then begin
-      image[j]=strtrim(strmid(image[j],1,strlen(image[j])-1),2)
+
+  ;all is well so set up the arrays
+  image=strarr(n_case)
+  anc_name=strarr(n_case)
+  outfile=strarr(n_case)
+  output_resolution=fltarr(n_case)
+  Max_Zenith_Angle=fltarr(n_case)
+
+  ;now the log file
+  log_file=''
+  if (present[1]) then begin
+    result=strpos(scr_text[rec_pos[1]],'=')
+    if (result le 0) then begin
+      print,'No = in log_file record ... bad input?'
+      status=5
+      goto,go_back
     endif
-    if (strmid(image[j],strlen(image[j])-1,1) eq "'") then begin
-      image[j]=strtrim(strmid(image[j],0,strlen(image[j])-1),2)
+    log_file=strtrim(strmid(scr_text[rec_pos[1]],result+1),2)
+    if (strmid(log_file,0,1) eq "'") then begin
+      log_file=strtrim(strmid(log_file,1,strlen(log_file)-1),2)
     endif
-  endfor
-endif
-
-;now the ancillary image(s)
-if (present[4]) then begin
-  result=strpos(scr_text[rec_pos[4]],'=')
-  if (result le 0) then begin
-    print,'No = in ancillary image list record ... bad input?'
-    status=5
-    goto,go_back
-  endif
-  inbuf=strtrim(strmid(scr_text[rec_pos[4]],result+1),2)
-  if (strmid(inbuf,0,1) eq '[') then begin
-    inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
-  endif
-  if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
-    inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
-  endif
-  anc_name=strtrim(strsplit(inbuf,',',/extract),2)
-  if (n_elements(anc_name) ne n_case) then begin
-    print,'Number of input ancillary images different from number of cases'
-    print,'n_case= ',n_case,' n_elements= ',n_elements(anc_name)
-    status=6
-    goto,go_back
-  endif
-  for j=0,n_case-1 do begin
-    if (strmid(anc_name[j],0,1) eq "'") then begin
-      anc_name[j]=strtrim(strmid(anc_name[j],1,strlen(anc_name[j])-1),2)
+    if (strmid(log_file,strlen(log_file)-1,1) eq "'") then begin
+      log_file=strtrim(strmid(log_file,0,strlen(log_file)-1),2)
     endif
-    if (strmid(anc_name[j],strlen(anc_name[j])-1,1) eq "'") then begin
-      anc_name[j]=strtrim(strmid(anc_name[j],0,strlen(anc_name[j])-1),2)
+  endif
+
+  ;now the run_desc
+  run_desc=''
+  if (present[2]) then begin
+    result=strpos(scr_text[rec_pos[2]],'=')
+    if (result le 0) then begin
+      print,'No = in run_desc record ... bad input?'
+      status=5
+      goto,go_back
     endif
-  endfor
-endif
-
-;now the output image(s)
-if (present[5]) then begin
-  result=strpos(scr_text[rec_pos[5]],'=')
-  if (result le 0) then begin
-    print,'No = in ancillary image list record ... bad input?'
-    status=5
-    goto,go_back
-  endif
-  inbuf=strtrim(strmid(scr_text[rec_pos[5]],result+1),2)
-  if (strmid(inbuf,0,1) eq '[') then begin
-    inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
-  endif
-  if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
-    inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
-  endif
-  outfile=strtrim(strsplit(inbuf,',',/extract),2)
-  if (n_elements(outfile) ne n_case) then begin
-    print,'Number of output images different from number of cases'
-    print,'n_case= ',n_case,' n_elements= ',n_elements(outfile)
-    status=6
-    goto,go_back
-  endif
-  for j=0,n_case-1 do begin
-    if (strmid(outfile[j],0,1) eq "'") then begin
-      outfile[j]=strtrim(strmid(outfile[j],1,strlen(outfile[j])-1),2)
+    run_desc=strtrim(strmid(scr_text[rec_pos[2]],result+1),2)
+    if (strmid(run_desc,0,1) eq "'") then begin
+      run_desc=strtrim(strmid(run_desc,1,strlen(run_desc)-1),2)
     endif
-    if (strmid(outfile[j],strlen(outfile[j])-1,1) eq "'") then begin
-      outfile[j]=strtrim(strmid(outfile[j],0,strlen(outfile[j])-1),2)
+    if (strmid(run_desc,strlen(run_desc)-1,1) eq "'") then begin
+      run_desc=strtrim(strmid(run_desc,0,strlen(run_desc)-1),2)
     endif
-  endfor
-endif
+  endif
 
-;now the output resolution
-if (present[6]) then begin
-  result=strpos(scr_text[rec_pos[6]],'=')
-  if (result le 0) then begin
-    print,'No = in output_resolution record ... bad input?'
-    status=5
-    goto,go_back
+  ;now the image(s)
+  if (present[3]) then begin
+    result=strpos(scr_text[rec_pos[3]],'=')
+    if (result le 0) then begin
+      print,'No = in image list record ... bad input?'
+      status=5
+      goto,go_back
+    endif
+    inbuf=strtrim(strmid(scr_text[rec_pos[3]],result+1),2)
+    if (strmid(inbuf,0,1) eq '[') then begin
+      inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
+    endif
+    if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
+      inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
+    endif
+    image=strtrim(strsplit(inbuf,',',/extract),2)
+    if (n_elements(image) ne n_case) then begin
+      print,'Number of input images different from number of cases'
+      print,'n_case= ',n_case,' n_elements= ',n_elements(image)
+      status=6
+      goto,go_back
+    endif
+    for j=0,n_case-1 do begin
+      if (strmid(image[j],0,1) eq "'") then begin
+        image[j]=strtrim(strmid(image[j],1,strlen(image[j])-1),2)
+      endif
+      if (strmid(image[j],strlen(image[j])-1,1) eq "'") then begin
+        image[j]=strtrim(strmid(image[j],0,strlen(image[j])-1),2)
+      endif
+    endfor
   endif
-  inbuf=strtrim(strmid(scr_text[rec_pos[6]],result+1),2)
-  if (strmid(inbuf,0,1) eq '[') then begin
-    inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
-  endif
-  if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
-    inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
-  endif
-  output_resolution=float(strsplit(inbuf,',',/extract))
-  if (n_elements(output_resolution) ne n_case) then begin
-    print,'Number of output resolutions different from number of cases'
-    print,'n_case= ',n_case,' n_elements= ',n_elements(output_resolution)
-    status=6
-    goto,go_back
-  endif
-endif
 
-;now the max zenith angle
-if (present[7]) then begin
-  result=strpos(scr_text[rec_pos[7]],'=')
-  if (result le 0) then begin
-    print,'No = in max_zenith_angle record ... bad input?'
-    status=5
-    goto,go_back
+  ;now the ancillary image(s)
+  if (present[4]) then begin
+    result=strpos(scr_text[rec_pos[4]],'=')
+    if (result le 0) then begin
+      print,'No = in ancillary image list record ... bad input?'
+      status=5
+      goto,go_back
+    endif
+    inbuf=strtrim(strmid(scr_text[rec_pos[4]],result+1),2)
+    if (strmid(inbuf,0,1) eq '[') then begin
+      inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
+    endif
+    if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
+      inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
+    endif
+    anc_name=strtrim(strsplit(inbuf,',',/extract),2)
+    if (n_elements(anc_name) ne n_case) then begin
+      print,'Number of input ancillary images different from number of cases'
+      print,'n_case= ',n_case,' n_elements= ',n_elements(anc_name)
+      status=6
+      goto,go_back
+    endif
+    for j=0,n_case-1 do begin
+      if (strmid(anc_name[j],0,1) eq "'") then begin
+        anc_name[j]=strtrim(strmid(anc_name[j],1,strlen(anc_name[j])-1),2)
+      endif
+      if (strmid(anc_name[j],strlen(anc_name[j])-1,1) eq "'") then begin
+        anc_name[j]=strtrim(strmid(anc_name[j],0,strlen(anc_name[j])-1),2)
+      endif
+    endfor
   endif
-  inbuf=strtrim(strmid(scr_text[rec_pos[7]],result+1),2)
-  if (strmid(inbuf,0,1) eq '[') then begin
-    inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
+
+  ;now the output image(s)
+  if (present[5]) then begin
+    result=strpos(scr_text[rec_pos[5]],'=')
+    if (result le 0) then begin
+      print,'No = in ancillary image list record ... bad input?'
+      status=5
+      goto,go_back
+    endif
+    inbuf=strtrim(strmid(scr_text[rec_pos[5]],result+1),2)
+    if (strmid(inbuf,0,1) eq '[') then begin
+      inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
+    endif
+    if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
+      inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
+    endif
+    outfile=strtrim(strsplit(inbuf,',',/extract),2)
+    if (n_elements(outfile) ne n_case) then begin
+      print,'Number of output images different from number of cases'
+      print,'n_case= ',n_case,' n_elements= ',n_elements(outfile)
+      status=6
+      goto,go_back
+    endif
+    for j=0,n_case-1 do begin
+      if (strmid(outfile[j],0,1) eq "'") then begin
+        outfile[j]=strtrim(strmid(outfile[j],1,strlen(outfile[j])-1),2)
+      endif
+      if (strmid(outfile[j],strlen(outfile[j])-1,1) eq "'") then begin
+        outfile[j]=strtrim(strmid(outfile[j],0,strlen(outfile[j])-1),2)
+      endif
+    endfor
   endif
-  if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
-    inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
+
+  ;now the output resolution
+  if (present[6]) then begin
+    result=strpos(scr_text[rec_pos[6]],'=')
+    if (result le 0) then begin
+      print,'No = in output_resolution record ... bad input?'
+      status=5
+      goto,go_back
+    endif
+    inbuf=strtrim(strmid(scr_text[rec_pos[6]],result+1),2)
+    if (strmid(inbuf,0,1) eq '[') then begin
+      inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
+    endif
+    if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
+      inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
+    endif
+    output_resolution=float(strsplit(inbuf,',',/extract))
+    if (n_elements(output_resolution) ne n_case) then begin
+      print,'Number of output resolutions different from number of cases'
+      print,'n_case= ',n_case,' n_elements= ',n_elements(output_resolution)
+      status=6
+      goto,go_back
+    endif
   endif
-  max_zenith_angle=float(strsplit(inbuf,',',/extract))
-  if (n_elements(max_zenith_angle) ne n_case) then begin
-    print,'Number of maximum zeniths different from number of cases'
-    print,'n_case= ',n_case,' n_elements= ',n_elements(max_zenith_angle)
-    status=6
-    goto,go_back
+
+  ;now the max zenith angle
+  if (present[7]) then begin
+    result=strpos(scr_text[rec_pos[7]],'=')
+    if (result le 0) then begin
+      print,'No = in max_zenith_angle record ... bad input?'
+      status=5
+      goto,go_back
+    endif
+    inbuf=strtrim(strmid(scr_text[rec_pos[7]],result+1),2)
+    if (strmid(inbuf,0,1) eq '[') then begin
+      inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
+    endif
+    if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
+      inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
+    endif
+    max_zenith_angle=float(strsplit(inbuf,',',/extract))
+    if (n_elements(max_zenith_angle) ne n_case) then begin
+      print,'Number of maximum zeniths different from number of cases'
+      print,'n_case= ',n_case,' n_elements= ',n_elements(max_zenith_angle)
+      status=6
+      goto,go_back
+    endif
   endif
-endif
 
-if (present[8]) then begin
-  exit_idl=0b
-  result=strpos(scr_text[rec_pos[8]],'=')
-  if (result le 0) then begin
-    print,'No = in exit_idl flag ... bad input?'
-    status=5
-    goto,go_back
+  ; now if exit idl after finishing processing
+  if (present[8]) then begin
+    exit_idl=0b
+    result=strpos(scr_text[rec_pos[8]],'=')
+    if (result le 0) then begin
+      print,'No = in exit_idl flag ... bad input?'
+      status=5
+      goto,go_back
+    endif
+    inbuf=strtrim(strmid(scr_text[rec_pos[8]],result+1),2)
+    reads,inbuf,exit_idl,format='(i2)'
   endif
-  inbuf=strtrim(strmid(scr_text[rec_pos[8]],result+1),2)
-  reads,inbuf,exit_idl,format='(i2)'
-endif
 
-if (present[9]) then begin
-  delete_input=0b
-  result=strpos(scr_text[rec_pos[9]],'=')
-  if (result le 0) then begin
-    print,'No = in delete_input flag ... bad input?'
-    status=5
-    goto,go_back
+  ; now if deleting input files
+  if (present[9]) then begin
+    delete_input=0b
+    result=strpos(scr_text[rec_pos[9]],'=')
+    if (result le 0) then begin
+      print,'No = in delete_input flag ... bad input?'
+      status=5
+      goto,go_back
+    endif
+    inbuf=strtrim(strmid(scr_text[rec_pos[9]],result+1),2)
+    reads,inbuf,delete_input,format='(i2)'
   endif
-  inbuf=strtrim(strmid(scr_text[rec_pos[9]],result+1),2)
-  reads,inbuf,delete_input,format='(i2)'
-endif
 
-print,'Input script file information:'
-print,' '
+  ;now the azimuth overlap range
+  if (present[10]) then begin
+    result=strpos(scr_text[rec_pos[10]],'=')
+    if (result le 0) then begin
+      print,'No = in overlap record ... bad input?'
+      status=5
+      goto,go_back
+    endif
+    inbuf=strtrim(strmid(scr_text[rec_pos[10]],result+1),2)
+    if (strmid(inbuf,0,1) eq '[') then begin
+      inbuf=strtrim(strmid(inbuf,1,strlen(inbuf)-1),2)
+    endif
+    if (strmid(inbuf,strlen(inbuf)-1,1) eq ']') then begin
+      inbuf=strtrim(strmid(inbuf,0,strlen(inbuf)-1),2)
+    endif
+    overlap=float(strsplit(inbuf,',',/extract))
+    if (n_elements(overlap) ne n_case) then begin
+      print,'Number of overlaps different from number of cases'
+      print,'n_case= ',n_case,' n_elements= ',n_elements(overlap)
+      status=6
+      goto,go_back
+    endif
+  endif
 
-print,'n_case= ',n_case
-if(present[1]) then begin
-  print,'log file= ',log_file
-endif else begin
-  print,'Log File not present'
-endelse
-if(present[2]) then begin
-  print,'Run Description= ',run_desc
-endif else begin
-  print,'Run Description not present'
-endelse
-if(present[3]) then begin
-  print,'Image List:'
-  for j=0,n_case-1 do begin
-    print,image[j]
-  endfor
-endif else begin
-  print,'Image List not present'
-endelse
-if(present[4]) then begin
-  print,'Ancillary Image List:'
-  for j=0,n_case-1 do begin
-    print,anc_name[j]
-  endfor
-endif else begin
-  print,'Ancillary Image List not present'
-endelse
-if(present[5]) then begin
-  print,'Output Image List:'
-  for j=0,n_case-1 do begin
-    print,outfile[j]
-  endfor
-endif else begin
-  print,'Output Image List not present'
-endelse
-if(present[6]) then begin
-  print,'Output Resolution= ',output_resolution
-endif else begin
-  print,'Output Resolution not present'
-endelse
-if(present[7]) then begin
-  print,'Max Zenith Angle= ',max_zenith_angle
-endif else begin
-  print,'Max Zenith Angle not present'
-endelse
-if(present[8]) then begin
-  print,'Exit IDL= ',Exit_IDL
-endif else begin
-  print,'Exit IDL Flag not present'
-endelse
-if(present[9]) then begin
-  print,'Delete_input= ',delete_input
-endif else begin
-  print,'Delete Input Flag not present'
-endelse
+  print,'Input script file information:'
+  print,' '
 
-sav={ $
-  Script_File:Script_File,$
-  n_case:n_case,$
-  Run_Desc:Run_Desc,$
-  script_type:script_type,$
-  Log_File:Log_File,$
-  image:image,$
-  anc_name:anc_name,$
-  outfile:outfile,$
-  output_resolution:output_resolution,$
-  Max_Zenith_Angle:Max_Zenith_Angle,$
-  exit_idl:exit_idl,$
-  delete_input:delete_input $
-}
+  print,'n_case= ',n_case
+  if(present[1]) then begin
+    print,'log file= ',log_file
+  endif else begin
+    print,'Log File not present'
+  endelse
+  if(present[2]) then begin
+    print,'Run Description= ',run_desc
+  endif else begin
+    print,'Run Description not present'
+  endelse
+  if(present[3]) then begin
+    print,'Image List:'
+    for j=0,n_case-1 do begin
+      print,image[j]
+    endfor
+  endif else begin
+    print,'Image List not present'
+  endelse
+  if(present[4]) then begin
+    print,'Ancillary Image List:'
+    for j=0,n_case-1 do begin
+      print,anc_name[j]
+    endfor
+  endif else begin
+    print,'Ancillary Image List not present'
+  endelse
+  if(present[5]) then begin
+    print,'Output Image List:'
+    for j=0,n_case-1 do begin
+      print,outfile[j]
+    endfor
+  endif else begin
+    print,'Output Image List not present'
+  endelse
+  if(present[6]) then begin
+    print,'Output Resolution= ',output_resolution
+  endif else begin
+    print,'Output Resolution not present'
+  endelse
+  if(present[7]) then begin
+    print,'Max Zenith Angle= ',max_zenith_angle
+  endif else begin
+    print,'Max Zenith Angle not present'
+  endelse
+  if(present[8]) then begin
+    print,'Exit IDL= ',Exit_IDL
+  endif else begin
+    print,'Exit IDL Flag not present'
+  endelse
+  if(present[9]) then begin
+    print,'Delete_input= ',delete_input
+  endif else begin
+    print,'Delete Input Flag not present'
+  endelse
+  if (present[10]) then begin
+    print, 'Overlap= ', overlap
+  endif else begin
+    print, 'Overlap not present'
+    overlap = make_array(n_case, value=-1, /integer)
+  endelse 
 
-;now locate the data on the heap with a pointer
-p_stat=ptr_new(sav,/no_copy)
+  sav={ $
+    Script_File:Script_File,$
+    n_case:n_case,$
+    Run_Desc:Run_Desc,$
+    script_type:script_type,$
+    Log_File:Log_File,$
+    image:image,$
+    anc_name:anc_name,$
+    outfile:outfile,$
+    output_resolution:output_resolution,$
+    Max_Zenith_Angle:Max_Zenith_Angle,$
+    exit_idl:exit_idl,$
+    delete_input:delete_input, $
+    overlap:overlap $
+  }
 
-go_back:
-sav=0b
-return, status
+  ;now locate the data on the heap with a pointer
+  p_stat=ptr_new(sav,/no_copy)
+
+  go_back:
+  sav=0b
+  return, status
 
 end
 
 ;======================================================================
-pro dwel_proj_at_batch_doit_cmd, script_file
+pro dwel_proj_at_batch_doit_cmd, script_file, MinRange=minrange
+  
   compile_opt idl2
   envi, /restore_base_save_files
   envi_batch_init, /no_status_wind
@@ -623,6 +660,7 @@ pro dwel_proj_at_batch_doit_cmd, script_file
   Max_Zenith_Angle=(*p_stat).Max_Zenith_Angle
   exit_idl=(*p_stat).exit_idl
   delete_input=(*p_stat).delete_input
+  overlap = (*p_stat).overlap
   ptr_free, p_stat
   
   ;========================================================================
@@ -1059,6 +1097,8 @@ pro dwel_proj_at_batch_doit_cmd, script_file
     printf,tfile,'Output Resolution(mrad)='+strtrim(buf,2)
     buf=strjoin(strtrim(string(max_zenith_angle,format='(f10.2)'),2),',',/single)
     printf,tfile,'Max Zenith Angle(deg)='+strtrim(buf,2)
+    buf=strjoin(strtrim(string(overlap,format='(f10.2)'),2),',',/single)
+    printf,tfile,'Azimuth overlap(deg)='+strtrim(buf,2)
     flush, tfile
     
     ;;all ready so ask if the user really wants to start it all off now?!
@@ -1326,6 +1366,61 @@ pro dwel_proj_at_batch_doit_cmd, script_file
         ShotZen:ShotZen,$
         ShotAzim:ShotAzim $
       }
+
+      ;; set the mask for no overlapping
+      ;; here we are using ENCODER values, NOT actual angular values. 
+      if overlap[j_case] ge 0 then begin
+        ; any negative values of overlap means to retain the whole overlap area. 
+        ;; set mask according to azimuth angles
+        ;; the last scan line to be included, its azimuth is calculated as following
+        ;;from the whole first line. This avoids the first pixel in the first line
+        ;;is an invalid pixel. 
+        tmpazim = lonarr(Nscans)
+        for i=0,Nscans-1 do begin
+          tmp = ShotAzim[where(Mask_all[*, i]), i]
+          tmpazim[i] = mean(tmp)
+        endfor 
+        ;; tmpazim = ShotAzim[where(Mask_all)]
+        ;; tmpazim = long(tmpazim) ;; convert the azimuth values to integer so that
+        ;; ;; unique function can act properly.
+        ;; tmpazim = tmpazim[uniq(tmpazim)]
+        ;; if n_elements(tmpazim) ne Nscans then begin
+        ;;   print, 'Azimuth values of scan lines are not expected'
+        ;;   return
+        ;; endif 
+        ;; tmpazim = reform(tmpazim, 2, Nscans)
+        ;; tmpazim = tmpazim[0, *]
+        tmpdiff = tmpazim[0:Nscans-2] - tmpazim[1:Nscans-1]
+        tmppos = where(tmpdiff lt -180.0, tmpcount)
+        while tmpcount gt 0 do begin
+          tmpazim = tmpazim[0:tmppos[0]] + 524288
+          tmpdiff = tmpazim[0:Nscans-2] - tmpazim[1:Nscans-1]
+          tmppos = where(tmpdiff lt -524288/2, tmpcount)
+        endwhile
+        ;; we've found that the azimuth encoders of the first few scan lines
+        ;; of a scan could be of no change possibly due to the inertial of the
+        ;;instrument rotation or lack of lock-in of rotary encoder. Thus here we
+        ;;retain the last 180 degrees of scan lines and discard the first few scan
+        ;;lines with possibly bad azimuth values. 
+
+        firstazim = tmpazim[Nscans-1] + 524288/2 + float(overlap[j_case])/360.0*524288
+        tmppos = where(tmpazim gt firstazim, tmpcount)
+        if tmpcount gt 0 then begin
+          Mask_all[*, 0:tmppos[tmpcount-1]] = 0
+        endif 
+
+        ;; lastazim = tmpazim[0] - 524288/2
+        ;; tmppos = where(tmpazim lt lastazim, tmpcount)
+        ;; if tmpcount gt 0 then begin
+        ;;   Mask_all[*, tmppos[0]:Nscans-1] = 0
+        ;; endif
+
+
+        ;; tmpazim = ShotAzim[*, 0]
+        ;; tmpazim = tmpazim[Mask_all[*, 0]]
+        ;; tmpazim = tmpazim[uniq(tmpazim)]
+        ;; lastazim = tmpazim[0]
+      endif    
       
       ;now put the data on the heap with a pointer
       p_stat=ptr_new(sav,/no_copy)
@@ -1631,21 +1726,32 @@ pro dwel_proj_at_batch_doit_cmd, script_file
       temp=make_array(Nshots,nb_out,/double)
       accum_r=make_array(ns_out,nl_out,/double)
       accum_r2=make_array(ns_out,nl_out,/double)
+      wfmax = make_array(ns_out, nl_out, /double)
       
       ;set up the range scaling
-      
+      sc_one = dblarr(nb_out)
       sc_r=dblarr(nb_out)
       sc_r2=dblarr(nb_out)
+
+      ;; set up a minimum range to be projected
+      if n_elements(minrange) ne 0 or arg_present(minrange) then begin
+        
+      endif else begin
+        minrange = 0.0
+      endelse  
       
-      pos_nz=where(wl ge 0.0,n_pos)
+      ;pos_nz=where(wl ge 0.0,n_pos)
+      pos_nz=where(wl ge minrange,n_pos)
       step=wl[1]-wl[0]
       
       if (n_pos gt 0) then begin
+        sc_one[pos_nz] = 1.0
         sc_r[pos_nz]=double(step)*(dindgen(n_pos)+1.0d)
         sc_r2[pos_nz]=(double(step)*(dindgen(n_pos)+1.0d))^2
       endif
       pos_nz=0b
       num_avg=make_array(ns_out,nl_out,/long)
+      sc_one = transpose(cmreplicate(sc_one, ns_out))
       
       ;do the processing over the output tiles
       ;BIL Tile
@@ -1674,7 +1780,8 @@ pro dwel_proj_at_batch_doit_cmd, script_file
             num_avg[pos_ind[2,point],k]=num_avg[pos_ind[2,point],k]+1L
             point=point+1L
           endwhile
-          temp[pos_nz,*]=cmreplicate((1.0/float(reform(num_avg[pos_nz,k]))),nb_out)*temp[pos_nz,*]
+          temp[pos_nz,*] = cmreplicate((1.0/float(reform(num_avg[pos_nz,k]))), $
+            nb_out) * temp[pos_nz,*]
         endif
         pos_ind=0b
         pos_nz=0b
@@ -1686,10 +1793,11 @@ pro dwel_proj_at_batch_doit_cmd, script_file
         writeu,ofile,fix(round(scaler*temp))
         
         ;now get the statistics of the image for the extra info file
-        accum[*,k]=total(temp,2,/double)/float(casing_fwhm)
-        accum_abs[*,k]=total(abs(temp),2,/double)/float(nb_out)
+        accum[*,k]=total(temp*sc_one,2,/double)/float(casing_fwhm)
+        accum_abs[*,k]=total(abs(transpose(temp)##sc_one),2,/double)/float(nb_out)
         accum_r[*,k]=transpose(temp)##sc_r
         accum_r2[*,k]=transpose(temp)##sc_r2
+        wfmax[*, k] = max(temp*sc_one, dimension=2)
         temp=0b
       endfor
       
@@ -1835,7 +1943,8 @@ pro dwel_proj_at_batch_doit_cmd, script_file
       writeu,ofile,fix(theta)
       writeu,ofile,fix(phi)
       writeu,ofile,fix(mask)
-      writeu,ofile,fix(round(accum))
+      ;writeu,ofile,fix(round(accum))
+      writeu, ofile, fix(round(scaler*wfmax))
       writeu,ofile,fix(round(accum_r))
       writeu,ofile,fix(round(accum_r2))
       writeu,ofile,fix(round(star_r))
