@@ -39,6 +39,8 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   compile_opt idl2
   envi, /restore_base_save_files
   envi_batch_init, /no_status_window
+
+  DN_offset = 512 ; constant offset of DN values to be subtracted from waveform DN values. 
   
   ;; ****some parameters to be set before settling down this routine****
   ;; distance from casing (edge of casing) to the true Tzero position
@@ -372,7 +374,9 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   tmpx = indgen(nl)
   
   openw, casingmeanfile, DWELCubeFile+'_casing.txt', /get_lun
-  printf, casingmeanfile, format='(%"%f,%f\n")', [reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements)), reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements))]
+  printf, casingmeanfile, format='(%"%f,%f")', [reform(casing_intensity_arr, $
+    1, size(casing_intensity_arr, /n_elements)), reform(casing_intensity_arr, 1, $
+    size(casing_intensity_arr, /n_elements))]
   close, casingmeanfile
 
   ;; Casing_linfit = linfit(tmpx, casing_intensity_arr, measure_errors=casing_intensity_sd_arr, yfit=casing_intensity_fit)
@@ -395,7 +399,10 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   ;; get a smoothed series of casing intensities against scan line
   ;; number
   ;; casing_intensity_smooth = ts_smooth(casing_intensity_arr, 11)
-  casing_scale_ratio = casing_intensity_fit[0] / casing_intensity_fit  
+  ;; remove the constant offset 512 from the DN values so that the intensity
+  ;; values are scalable
+  casing_scale_ratio = (casing_intensity_fit[0] - DN_offset) / (casing_intensity_fit - $
+    DN_offset)  
 
   ;; ****debug***
   print, 'casing intensity quadratic fit, y=a+b*x+c*x^2: '
@@ -403,10 +410,10 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
          ', b = ', casing_polyfit[1], $
          ', c = ', casing_polyfit[2]
   openw, casingmeanfile, DWELCubeFile+'_casingfit.txt', /get_lun
-  printf, casingmeanfile, format='(%"%f,%f,%f\n")', $
+  printf, casingmeanfile, format='(%"%f,%f,%f")', $
           [reform(casing_intensity_arr, 1, size(casing_intensity_arr, /n_elements)), $
-          reform(casing_intensity_fit, 1, size(casing_intensity_fit, /n_elements))];;, $
-;;             reform(casing_intensity_smooth, 1, size(casing_intensity_smooth, /n_elements))]
+          reform(casing_intensity_fit, 1, size(casing_intensity_fit, /n_elements)), $
+          reform(casing_scale_ratio, 1, size(casing_scale_ratio, /n_elements))]
   close, casingmeanfile
   ;; ****
 
@@ -419,7 +426,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     index=where((mask_all[*,i] ne 0) and (zeniths[*,i] ge Casing_Range[0] and zeniths[*,i] LE Casing_Range[1]), count)
     if (count gt 0L) then begin
       data = envi_get_slice(fid=infile_fid, line=i, /bil)
-      d = double(data[index,*]) * casing_scale_ratio[i]
+      d = (double(data[index,*]) - DN_offset) * casing_scale_ratio[i] + DN_offset
       data=0b
       n = n + count
       sum = sum + total(d, 1, /double)
@@ -430,7 +437,8 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     index=0b
     data=0b
     d=0b
- ENDFOR
+  ENDFOR
+
   ; initial time from current data cube before baseline fix
   time = wl 
   p_time = time
@@ -449,6 +457,15 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   ENDIF ELSE BEGIN
      baseline[where(time GE time[tmppos] - pulse_width_range/2.0)] = pulse[nb-1]
   ENDELSE 
+
+  ; debug
+  ; output mean pulse and standard deviation
+  openw, meanpulsefile, DWELCubeFile+'_casingmeanpulse.txt', /get_lun
+  printf, meanpulsefile, format='(%"%f,%f")', $
+          [reform(pulse, 1, size(pulse, /n_elements)), $
+          reform(sig, 1, size(sig, /n_elements))]
+  close, meanpulsefile
+
   
   pulse = pulse - baseline
   
@@ -607,7 +624,7 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
     ;; scale the waveforms according to casing return intensities so
     ;; that the DN values of different scan lines are at the same
     ;;level and the laser outgoing power drop-off is corrected
-    temp = temp*casing_scale_ratio[i]
+    temp = (temp - DN_offset)*casing_scale_ratio[i] + DN_offset
 
     ;; remove backgroun noises. 
     temp=temp-transpose(baseline)##one_ns
