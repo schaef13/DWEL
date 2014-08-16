@@ -1229,33 +1229,38 @@ pro dwel_proj_at_batch_doit_cmd, script_file, MinRange=minrange
       endif
       
       ;locate and set the scale factor for the average images
-      if (not evi_headers.base_present) then begin
-        base_scale=1.0
-        if (type le 1) then begin
-          scale=1000.0d0
-        endif else begin
-          scale=100.0d0
-        endelse
-      endif else begin
-        text=strtrim(evi_headers.EVI_base_fix_info[8],2)
-        l=strlen(text)
-        k=strpos(text,'=')
-        if (strtrim(strmid(text,0,k),2) ne 'scale') then begin
-          base_scale=1.0
-          if (type le 1) then begin
-            scale=1000.0d0
-          endif else begin
-            scale=100.0d0
-          endelse
-        endif else begin
-          reads,strtrim(strmid(text,k+1,l),2),base_scale
-          if (type le 1) then begin
-            scale=1000.0d0/double(base_scale)
-          endif else begin
-            scale=100.0d0/double(base_scale)
-          endelse
-        endelse
-      endelse
+      ;; if (not evi_headers.base_present) then begin
+      ;;   base_scale=1.0
+      ;;   if (type le 1) then begin
+      ;;     scale=1000.0d0
+      ;;   endif else begin
+      ;;     scale=100.0d0
+      ;;   endelse
+      ;; endif else begin
+      ;;   text=strtrim(evi_headers.EVI_base_fix_info[8],2)
+      ;;   l=strlen(text)
+      ;;   k=strpos(text,'=')
+      ;;   if (strtrim(strmid(text,0,k),2) ne 'scale') then begin
+      ;;     base_scale=1.0
+      ;;     if (type le 1) then begin
+      ;;       scale=1000.0d0
+      ;;     endif else begin
+      ;;       scale=100.0d0
+      ;;     endelse
+      ;;   endif else begin
+      ;;     reads,strtrim(strmid(text,k+1,l),2),base_scale
+      ;;     if (type le 1) then begin
+      ;;       scale=1000.0d0/double(base_scale)
+      ;;     endif else begin
+      ;;       scale=100.0d0/double(base_scale)
+      ;;     endelse
+      ;;   endelse
+      ;; endelse
+      
+      ;; get rid of the complication of different scale factor for mean image
+      ;; b/c it causes many confusions and overflow troubles sometimes. 
+      ;; simply just use scale factor of 1.0
+      scale = 1.0
       
       ;Get date and time of the acquisition
       evi_date_time=''
@@ -1944,7 +1949,7 @@ pro dwel_proj_at_batch_doit_cmd, script_file, MinRange=minrange
       writeu,ofile,fix(phi)
       writeu,ofile,fix(mask)
       ;writeu,ofile,fix(round(accum))
-      writeu, ofile, fix(round(scaler*wfmax))
+      writeu, ofile, fix(round(scale*wfmax))
       writeu,ofile,fix(round(accum_r))
       writeu,ofile,fix(round(accum_r2))
       writeu,ofile,fix(round(star_r))
