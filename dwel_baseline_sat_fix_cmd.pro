@@ -210,7 +210,8 @@ pro DWEL_Baseline_Sat_Fix_Cmd, DWELCubeFile, Casing_Range
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
   ;also scale
-  scale=10.0
+  scale=1.0                     ; change from 10.0 to 1.0 because the scale of
+                                ; 10 will give overflow with 16 bit integer. 
   ;also encoder zero zenith
   enc_zero_zenith=double(262144.0)
   
